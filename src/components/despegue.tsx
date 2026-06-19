@@ -6,7 +6,7 @@
    in index.css (prefixed `va-`).
    ============================================================================ */
 import {
-  useState,
+  useEffect, useState,
   type CSSProperties,
   type ReactNode,
   type ButtonHTMLAttributes,
@@ -304,16 +304,27 @@ export function Wordmark({ size = 20 }: { size?: number }) {
   )
 }
 
-/* Stacked hero H1 with the last word highlighted yellow. */
-export function HeroTitle({ lines, accentLast = true, size = 40 }:
-  { lines: string[]; accentLast?: boolean; size?: number }) {
+/* Stacked hero H1 with the last word accented. On the dark canvas the accent is
+   yellow TEXT; on a light Surface (onLight) it's ink text under a yellow
+   highlight MARK — because yellow-on-light fails contrast (design-system §2). */
+export function HeroTitle({ lines, accentLast = true, size = 40, onLight = false }:
+  { lines: string[]; accentLast?: boolean; size?: number; onLight?: boolean }) {
+  const baseColor = onLight ? T.ink : T.bg
   return (
     <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: size,
-      letterSpacing: '-.03em', lineHeight: 1.03, color: T.bg, margin: 0 }}>
-      {lines.map((l, i) => (
-        <span key={l + i} style={{ display: 'block',
-          color: accentLast && i === lines.length - 1 ? T.yellow : T.bg }}>{l}</span>
-      ))}
+      letterSpacing: '-.03em', lineHeight: 1.03, color: baseColor, margin: 0 }}>
+      {lines.map((l, i) => {
+        const isAccent = accentLast && i === lines.length - 1
+        if (isAccent && onLight) {
+          return (
+            <span key={l + i} style={{ display: 'block' }}>
+              <span className="va-mark" style={{ color: T.ink, padding: '0 4px',
+                boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}>{l}</span>
+            </span>
+          )
+        }
+        return <span key={l + i} style={{ display: 'block', color: isAccent ? T.yellow : baseColor }}>{l}</span>
+      })}
     </h1>
   )
 }
@@ -333,6 +344,64 @@ export function Eyebrow({ children, onDark = false }: { children: ReactNode; onD
   return (
     <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase',
       color: onDark ? T.onDarkMuted : T.muted }}>{children}</span>
+  )
+}
+
+/* ----------------------------------------------------------------------------
+   FullscreenButton — discreet, DESKTOP-ONLY toggle floated in a corner. Renders
+   nothing on touch/mobile (laptop-first per spec) or where the API is missing.
+   Mount once in the app shell so it appears on every page.
+   ---------------------------------------------------------------------------- */
+export function FullscreenButton() {
+  const [isFs, setIsFs] = useState(false)
+  const [show, setShow] = useState(false)
+  const [hover, setHover] = useState(false)
+
+  useEffect(() => {
+    const desktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+    const supported = !!document.documentElement.requestFullscreen
+    setShow(desktop && supported)
+    const onChange = () => setIsFs(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  if (!show) return null
+
+  async function toggle() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen()
+      else await document.documentElement.requestFullscreen()
+    } catch { /* user-gesture / permission edge cases — ignore */ }
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      aria-label={isFs ? 'Salir de pantalla completa' : 'Pantalla completa'}
+      title={isFs ? 'Salir de pantalla completa' : 'Pantalla completa'}
+      style={{ position: 'fixed', right: 16, bottom: 16, zIndex: 60,
+        width: 36, height: 36, borderRadius: 10, cursor: 'pointer', display: 'grid', placeItems: 'center',
+        background: hover ? 'rgba(255,255,255,.14)' : 'rgba(255,255,255,.06)',
+        border: '1px solid rgba(255,255,255,.14)', color: T.onDarkSoft,
+        opacity: hover ? 1 : 0.4, transition: 'opacity .25s var(--ease-glide), background .25s var(--ease-glide)' }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        {isFs ? (
+          <>
+            <path d="M9 3v3a3 3 0 0 1-3 3H3" /><path d="M15 3v3a3 3 0 0 0 3 3h3" />
+            <path d="M9 21v-3a3 3 0 0 0-3-3H3" /><path d="M15 21v-3a3 3 0 0 1 3-3h3" />
+          </>
+        ) : (
+          <>
+            <path d="M3 8V5a2 2 0 0 1 2-2h3" /><path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+            <path d="M3 16v3a2 2 0 0 0 2 2h3" /><path d="M21 16v3a2 2 0 0 1-2 2h-3" />
+          </>
+        )}
+      </svg>
+    </button>
   )
 }
 

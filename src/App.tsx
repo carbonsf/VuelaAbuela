@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { RoomProvider, useRoom } from './RoomContext'
 import { GOD_MODE, SAMPLE_NAMES } from './godmode/godmode'
 import { GodModeBar } from './godmode/GodModeBar'
-import { CanvasShell, Pill, Wordmark, T } from './components/despegue'
+import { CanvasShell, FullscreenButton, Pill, Wordmark, T } from './components/despegue'
 import { JoinScreen } from './screens/JoinScreen'
 import { StudentApp } from './screens/StudentApp'
 import { TeacherDashboard } from './teacher/TeacherDashboard'
@@ -61,6 +61,7 @@ function Shell() {
         <main style={{ padding: '8px 24px 64px' }}>
           <StudentDevice device={{ id: 'solo', kind: 'student' }} onJoined={() => {}} />
         </main>
+        <FullscreenButton />
       </CanvasShell>
     )
   }
@@ -82,6 +83,7 @@ function Shell() {
           <StudentDevice device={active} onJoined={(sid) => bindStudent(active.id, sid)} />
         )}
       </main>
+      <FullscreenButton />
     </CanvasShell>
   )
 }

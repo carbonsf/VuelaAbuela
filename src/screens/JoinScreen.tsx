@@ -48,7 +48,7 @@ export function JoinScreen({ onJoined }: { onJoined: (studentId: string) => void
         <Wordmark size={26} />
       </div>
       <Surface style={{ padding: 26 }}>
-        <HeroTitle lines={['Únete', 'y despega']} size={34} />
+        <HeroTitle lines={['Únete', 'y despega']} size={34} onLight />
         <p style={{ margin: '12px 0 0', color: T.muted, fontSize: 14.5 }}>
           Entra en la clase y conoce a un desconocido que inventarán juntos.
         </p>
