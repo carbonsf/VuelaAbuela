@@ -384,8 +384,9 @@ export function FullscreenButton() {
       aria-label={isFs ? 'Salir de pantalla completa' : 'Pantalla completa'}
       title={isFs ? 'Salir de pantalla completa' : 'Pantalla completa'}
       style={{ position: 'fixed', right: 18, bottom: 18, zIndex: 60,
-        height: 42, borderRadius: 999, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
-        padding: hover ? '0 16px 0 13px' : '0 11px', whiteSpace: 'nowrap',
+        height: 42, width: hover ? 'auto' : 42, borderRadius: 999, cursor: 'pointer',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: hover ? 8 : 0,
+        padding: hover ? '0 16px 0 13px' : 0, whiteSpace: 'nowrap',
         background: hover ? 'rgba(255,221,0,.16)' : 'rgba(255,255,255,.10)',
         border: `1px solid ${hover ? 'rgba(255,221,0,.55)' : 'rgba(255,255,255,.22)'}`,
         color: hover ? T.yellow : T.onDarkSoft,
