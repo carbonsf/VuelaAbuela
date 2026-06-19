@@ -5,6 +5,7 @@ import { GodModeBar } from './godmode/GodModeBar'
 import { CanvasShell, FullscreenButton, Pill, Wordmark, T } from './components/despegue'
 import { JoinScreen } from './screens/JoinScreen'
 import { StudentApp } from './screens/StudentApp'
+import { LandingScreen } from './screens/LandingScreen'
 import { TeacherDashboard } from './teacher/TeacherDashboard'
 
 // A "device" is one screen the operator can switch to: the teacher dashboard or
@@ -31,6 +32,7 @@ function Shell() {
     { id: nextDeviceId(), kind: 'student' },
   ])
   const [activeId, setActiveId] = useState<string>(() => devices[1].id)
+  const [started, setStarted] = useState(false)
 
   function bindStudent(deviceId: string, studentId: string) {
     setDevices((ds) => ds.map((d) => (d.id === deviceId && d.kind === 'student' ? { ...d, studentId } : d)))
@@ -53,6 +55,16 @@ function Shell() {
   }
 
   const active = devices.find((d) => d.id === activeId) ?? devices[0]
+
+  // Dynamic visual landing — the entry point until the user clicks to begin.
+  if (!started) {
+    return (
+      <CanvasShell>
+        <LandingScreen onBegin={() => setStarted(true)} />
+        <FullscreenButton />
+      </CanvasShell>
+    )
+  }
 
   if (!GOD_MODE) {
     return (

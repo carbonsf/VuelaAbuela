@@ -127,6 +127,13 @@ button:focus-visible { outline: 3px solid var(--color-yellow-500); outline-offse
 .va-screen { animation: va-screenIn .55s var(--ease-glide) both; }
 .va-rise   { animation: va-rise .5s var(--ease-spring) both; }
 
+/* Landing fly-in. Splitting X and Y onto nested elements with DIFFERENT easings
+   bends the entrance into a curved (bezier) arc rather than a straight line. */
+@keyframes va-flyX { 0% { transform: translateX(var(--fx, 0)); } 100% { transform: translateX(0); } }
+@keyframes va-flyY { 0% { transform: translateY(var(--fy, 0)); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+@keyframes va-fadeUp { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes va-breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+
 /* ----------------------------------------------------------------------------
    Accessibility — collapse all motion to ~instant for users who opt out.
    ---------------------------------------------------------------------------- */
