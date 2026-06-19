@@ -375,6 +375,7 @@ export function FullscreenButton() {
     } catch { /* user-gesture / permission edge cases — ignore */ }
   }
 
+  const label = isFs ? 'Salir' : 'Pantalla completa'
   return (
     <button
       onClick={toggle}
@@ -382,13 +383,17 @@ export function FullscreenButton() {
       onMouseLeave={() => setHover(false)}
       aria-label={isFs ? 'Salir de pantalla completa' : 'Pantalla completa'}
       title={isFs ? 'Salir de pantalla completa' : 'Pantalla completa'}
-      style={{ position: 'fixed', right: 16, bottom: 16, zIndex: 60,
-        width: 36, height: 36, borderRadius: 10, cursor: 'pointer', display: 'grid', placeItems: 'center',
-        background: hover ? 'rgba(255,255,255,.14)' : 'rgba(255,255,255,.06)',
-        border: '1px solid rgba(255,255,255,.14)', color: T.onDarkSoft,
-        opacity: hover ? 1 : 0.4, transition: 'opacity .25s var(--ease-glide), background .25s var(--ease-glide)' }}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      style={{ position: 'fixed', right: 18, bottom: 18, zIndex: 60,
+        height: 42, borderRadius: 999, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: hover ? '0 16px 0 13px' : '0 11px', whiteSpace: 'nowrap',
+        background: hover ? 'rgba(255,221,0,.16)' : 'rgba(255,255,255,.10)',
+        border: `1px solid ${hover ? 'rgba(255,221,0,.55)' : 'rgba(255,255,255,.22)'}`,
+        color: hover ? T.yellow : T.onDarkSoft,
+        boxShadow: hover ? '0 8px 24px -10px rgba(0,0,0,.6)' : '0 4px 14px -8px rgba(0,0,0,.5)',
+        opacity: hover ? 1 : 0.82,
+        transition: 'opacity .25s var(--ease-glide), background .25s var(--ease-glide), border-color .25s var(--ease-glide), color .25s var(--ease-glide), padding .25s var(--ease-glide)' }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>
         {isFs ? (
           <>
             <path d="M9 3v3a3 3 0 0 1-3 3H3" /><path d="M15 3v3a3 3 0 0 0 3 3h3" />
@@ -401,6 +406,11 @@ export function FullscreenButton() {
           </>
         )}
       </svg>
+      <span style={{ fontFamily: 'var(--font-display)', fontSize: 12.5, fontWeight: 600,
+        letterSpacing: '.02em', maxWidth: hover ? 160 : 0, overflow: 'hidden',
+        transition: 'max-width .28s var(--ease-glide)' }}>
+        {label}
+      </span>
     </button>
   )
 }

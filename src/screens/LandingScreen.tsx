@@ -5,6 +5,31 @@ import { Button, T } from '../components/despegue'
 // settle and breathe until the user clicks to begin. Pure theming — leverages
 // the canvas, brand colors, and abstract flight motion. No literal icons.
 
+// Optical kerning for the display wordmark. A uniform base track tightens the
+// whole word; KERN then adds a per-pair optical correction (em, margin-left on
+// the *second* letter of each pair) where Space Grotesk's metric spacing reads
+// uneven at display size — chiefly the open diagonals of V and A.
+const WORDMARK = 'VuelaAbuela'
+const WHITE_UNTIL = 5 // "Vuela" white, "Abuela" yellow
+const BASE_TRACK = -0.03 // uniform tracking applied to every pair
+//                  V     u       e       l       a       A      b       u       e       l       a
+const KERN = [0, -0.032, 0.002, -0.004, 0.004, -0.006, -0.03, -0.004, 0.002, -0.004, 0.004]
+
+function KernedWordmark({ size }: { size: string }) {
+  return (
+    <span aria-label={WORDMARK} role="img"
+      style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: size, lineHeight: 0.95,
+        fontKerning: 'none', whiteSpace: 'nowrap' }}>
+      {WORDMARK.split('').map((ch, i) => (
+        <span key={i} aria-hidden style={{ marginLeft: i === 0 ? 0 : `${BASE_TRACK + KERN[i]}em`,
+          color: i < WHITE_UNTIL ? T.bg : T.yellow }}>
+          {ch}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 interface Comet {
   d: string // a cubic-bezier path that enters and exits off-canvas (loop reset hidden)
   color: string
@@ -61,10 +86,7 @@ export function LandingScreen({ onBegin }: { onBegin: () => void }) {
         <div style={{ animation: 'va-flyX 1.1s var(--ease-glide) both', ['--fx' as string]: '-7vw' }}>
           <div style={{ animation: 'va-flyY 1.1s var(--ease-spring) both', ['--fy' as string]: '34vh' }}>
             <div style={{ display: 'inline-block', animation: 'va-breathe 7s var(--ease-glide) infinite', animationDelay: '1.1s' }}>
-              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, letterSpacing: '-.04em',
-                fontSize: 'clamp(48px, 11vw, 124px)', lineHeight: 0.95, color: T.bg }}>
-                Vuela<span style={{ color: T.yellow }}>Abuela</span>
-              </span>
+              <KernedWordmark size="clamp(48px, 11vw, 124px)" />
             </div>
           </div>
         </div>
