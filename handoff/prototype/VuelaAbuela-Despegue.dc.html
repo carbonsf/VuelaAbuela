@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --glide: cubic-bezier(.22,1,.36,1); --spring: cubic-bezier(.34,1.45,.5,1); }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:#03361E; font-family:'Hanken Grotesk',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  button:focus-visible{ outline:3px solid #FFDD00; outline-offset:3px; }
+  @keyframes drift { 0%{transform:translate(0,0)} 50%{transform:translate(20px,-26px)} 100%{transform:translate(0,0)} }
+  @keyframes driftB { 0%{transform:translate(0,0)} 50%{transform:translate(-26px,20px)} 100%{transform:translate(0,0)} }
+  @keyframes pulseDot { 0%,100%{opacity:.45;transform:scale(.82)} 50%{opacity:1;transform:scale(1.08)} }
+  @keyframes rise { 0%{opacity:0;transform:translateY(18px) scale(.99)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+  @keyframes screenIn { 0%{transform:translateY(20px) scale(.992)} 100%{transform:translateY(0) scale(1)} }
+  @keyframes riseSoft { 0%{opacity:0;transform:translateY(12px)} 100%{opacity:1;transform:translateY(0)} }
+  @keyframes shuffleIn { 0%{opacity:0; transform:translate(var(--sx,0), var(--sy,0)) rotate(var(--sr,0deg)) scale(.65);} 55%{opacity:1;} 100%{opacity:1; transform:translate(0,0) rotate(0) scale(1);} }
+  @keyframes cardPop { 0%{opacity:0; transform:translateY(28px) scale(.95);} 100%{opacity:1; transform:translateY(0) scale(1);} }
+  .screen{ animation:screenIn .55s var(--glide) both; }
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; } }
+</style>
+</helmet>
+
+<div style="position:relative; min-height:100vh; background:#03361E; overflow:hidden;">
+  <!-- ambient drifting glows -->
+  <div style="position:fixed; top:-160px; left:-120px; width:520px; height:520px; border-radius:50%; background:radial-gradient(circle at 40% 40%, rgba(8,107,60,.5) 0%, rgba(8,107,60,0) 68%); animation:drift 20s var(--glide) infinite; pointer-events:none;"></div>
+  <div style="position:fixed; bottom:-200px; right:-140px; width:560px; height:560px; border-radius:50%; background:radial-gradient(circle at 50% 50%, rgba(224,168,0,.22) 0%, rgba(224,168,0,0) 66%); animation:driftB 26s var(--glide) infinite; pointer-events:none;"></div>
+  <div style="position:fixed; top:40%; left:55%; width:380px; height:380px; border-radius:50%; background:radial-gradient(circle at 50% 50%, rgba(8,107,60,.28) 0%, rgba(8,107,60,0) 70%); animation:driftB 32s var(--glide) infinite; pointer-events:none;"></div>
+
+  <!-- top bar -->
+  <div style="position:relative; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:20px 30px; max-width:1080px; margin:0 auto;">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:20px; letter-spacing:-.01em; color:#FAFBF8;">Vuela<span style="color:#FFDD00;">Abuela</span></div>
+      <span style="font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; color:#9CC3AC; border:1px solid rgba(156,195,172,.3); border-radius:6px; padding:4px 9px; white-space:nowrap;">Escuela demo</span>
+    </div>
+
+    <!-- segmented switcher -->
+    <div role="tablist" style="position:relative; display:flex; background:rgba(250,251,248,.06); border:1px solid rgba(255,255,255,.1); border-radius:999px; padding:5px;">
+      <div style="position:absolute; top:5px; left:5px; width:134px; height:calc(100% - 10px); border-radius:999px; background:#FFDD00; transform:translateX({{ indicatorX }}); transition:transform .55s var(--spring); box-shadow:0 6px 18px -6px rgba(255,221,0,.6);"></div>
+      <button onClick="{{ goInput }}" style="position:relative; width:134px; border:none; background:transparent; cursor:pointer; padding:11px 0; border-radius:999px; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:{{ c1 }}; transition:color .4s var(--glide);">Construir</button>
+      <button onClick="{{ goConv }}" style="position:relative; width:134px; border:none; background:transparent; cursor:pointer; padding:11px 0; border-radius:999px; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:{{ c2 }}; transition:color .4s var(--glide);">Conversar</button>
+      <button onClick="{{ goReparto }}" style="position:relative; width:134px; border:none; background:transparent; cursor:pointer; padding:11px 0; border-radius:999px; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:{{ c4 }}; transition:color .4s var(--glide);">Reparto</button>
+      <button onClick="{{ goTeacher }}" style="position:relative; width:134px; border:none; background:transparent; cursor:pointer; padding:11px 0; border-radius:999px; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:{{ c3 }}; transition:color .4s var(--glide);">Tablero</button>
+    </div>
+
+    <div style="font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; color:#9CC3AC; white-space:nowrap;">Sala <span style="color:#FAFBF8;">MARI</span></div>
+  </div>
+
+  <!-- ============ STAGE ============ -->
+  <div style="position:relative; padding:8px 30px 64px;">
+
+    <!-- ===== INPUT ===== -->
+    <sc-if value="{{ isInput }}" hint-placeholder-val="{{ true }}">
+    <div class="screen" style="max-width:620px; margin:0 auto;">
+      <div style="position:relative; display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-top:18px;">
+        <h1 style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:44px; line-height:1.02; letter-spacing:-.03em; color:#FAFBF8;">Construye<br>tu persona<br><span style="color:#FFDD00;">secreta</span></h1>
+        <div style="flex:none; position:relative; width:96px; height:96px;">
+          <svg width="96" height="96" viewBox="0 0 96 96" style="transform:rotate(-90deg);">
+            <circle cx="48" cy="48" r="40" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="7"></circle>
+            <circle cx="48" cy="48" r="40" fill="none" stroke="#FFDD00" stroke-width="7" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="{{ arcOffset }}" style="transition:stroke-dashoffset .8s var(--glide);"></circle>
+          </svg>
+          <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+            <span style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:21px; color:#FAFBF8; line-height:1;">{{ readyN }}<span style="font-size:13px; color:#9CC3AC;">/5</span></span>
+            <span style="font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:#9CC3AC; margin-top:3px;">listas</span>
+          </div>
+        </div>
+      </div>
+
+      <p style="margin:16px 0 0; font-size:14.5px; color:#9CC3AC; line-height:1.55; max-width:400px;">Cada respuesta se baraja en la persona de otro/a. Escribe en <strong style="color:#FAFBF8; font-weight:600;">espa&ntilde;ol</strong>.</p>
+
+      <div style="display:flex; align-items:center; gap:8px; margin-top:16px;">
+        <span style="font-size:12px; font-weight:600; color:#03361E; background:#FFDD00; border-radius:999px; padding:4px 11px; white-space:nowrap;">el presente</span>
+        <span style="font-size:12px; font-weight:600; color:#C5DDCE; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:4px 11px; white-space:nowrap;">3.&ordf; persona</span>
+        <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#7FD6A6; background:rgba(46,139,87,.16); border-radius:999px; padding:4px 11px; white-space:nowrap;"><span style="width:7px; height:7px; border-radius:50%; background:#5ED69B; animation:pulseDot 1.6s var(--glide) infinite;"></span>validaci&oacute;n en vivo</span>
+      </div>
+
+      <!-- name -->
+      <div style="margin-top:24px; display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:rgba(250,251,248,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px;">
+        <div>
+          <div style="font-size:10.5px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#9CC3AC;">Nombre</div>
+          <div style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:18px; color:#FAFBF8; margin-top:2px;">Marisol</div>
+        </div>
+        <span style="font-size:12px; font-weight:600; color:#03361E; background:#FFDD00; border-radius:999px; padding:4px 11px; white-space:nowrap;">fijo &check;</span>
+      </div>
+
+      <!-- passed -->
+      <div style="margin-top:13px; padding:16px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:14px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 16px 40px -22px rgba(0,0,0,.6); transition:transform .45s var(--spring);" style-hover="transform:translateY(-3px);">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:600; font-size:15px; color:#1B2620;">Un lugar favorito</div>
+          <span style="display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:#086B3C; color:#fff; font-size:12px;">&check;</span>
+        </div>
+        <div style="margin-top:10px; padding:11px 14px; background:#fff; border:1px solid #C5DDCE; border-radius:10px; font-size:15px; color:#054F2C; font-weight:500;">el mercado de Oaxaca</div>
+      </div>
+
+      <!-- hint -->
+      <div style="margin-top:13px; padding:16px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:14px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 16px 40px -22px rgba(0,0,0,.5);">
+        <div style="font-weight:600; font-size:15px; color:#1B2620;">Algo que haces los s&aacute;bados</div>
+        <div style="margin-top:10px; display:flex; gap:9px;">
+          <div style="flex:1; padding:11px 14px; background:#fff; border:1.5px solid #E0A800; border-radius:10px; font-size:15px; color:#1B2620;">yo bailar salsa</div>
+          <button style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14px; color:#03361E; background:#FFDD00; border:none; border-radius:10px; padding:0 18px; min-height:44px; cursor:pointer; transition:filter .25s var(--glide), transform .3s var(--spring);" style-hover="filter:brightness(1.05); transform:translateY(-1px);">Revisar</button>
+        </div>
+        <p style="margin:10px 0 0; font-size:13px; color:#8A5400; line-height:1.45;"><strong style="font-weight:700;">Casi&mdash;</strong> el verbo necesita conjugarse. &iquest;Qui&eacute;n baila?</p>
+      </div>
+
+      <!-- dream row: active or passed -->
+      <sc-if value="{{ dreamOpen }}" hint-placeholder-val="{{ true }}">
+      <div style="margin-top:13px; padding:16px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:14px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 16px 40px -22px rgba(0,0,0,.5);">
+        <div style="font-weight:600; font-size:15px; color:#1B2620;">Un sue&ntilde;o para el futuro</div>
+        <div style="margin-top:10px; display:flex; gap:9px;">
+          <div style="flex:1; padding:11px 14px; background:#fff; border:1.5px solid #086B3C; border-radius:10px; font-size:15px; color:#1B2620; box-shadow:0 0 0 4px rgba(8,107,60,.1);">viajar a Jap&oacute;n</div>
+          <button onClick="{{ passDream }}" style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14px; color:#fff; background:#086B3C; border:none; border-radius:10px; padding:0 18px; min-height:44px; cursor:pointer; transition:background .25s var(--glide), transform .3s var(--spring);" style-hover="background:#054F2C; transform:translateY(-1px);">Revisar &check;</button>
+        </div>
+      </div>
+      </sc-if>
+      <sc-if value="{{ dreamPassed }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:13px; padding:16px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:14px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 16px 40px -22px rgba(0,0,0,.6); animation:rise .5s var(--spring) both;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:600; font-size:15px; color:#1B2620;">Un sue&ntilde;o para el futuro</div>
+          <span style="display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:#086B3C; color:#fff; font-size:12px;">&check;</span>
+        </div>
+        <div style="margin-top:10px; padding:11px 14px; background:#fff; border:1px solid #C5DDCE; border-radius:10px; font-size:15px; color:#054F2C; font-weight:500;">viajar a Jap&oacute;n</div>
+      </div>
+      </sc-if>
+
+      <p style="margin:20px 2px 0; font-size:12.5px; color:#9CC3AC; text-align:center; line-height:1.5;">Cuando las cinco est&eacute;n listas, planear&aacute;s hacia la sala de espera.</p>
+    </div>
+    </sc-if>
+
+    <!-- ===== CONVERSATION ===== -->
+    <sc-if value="{{ isConv }}" hint-placeholder-val="{{ false }}">
+    <div class="screen" style="max-width:660px; margin:0 auto;">
+      <div style="margin-top:18px;">
+        <h1 style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:40px; line-height:1.04; letter-spacing:-.03em; color:#FAFBF8;">La <span style="color:#FFDD00;">conversaci&oacute;n</span></h1>
+        <p style="margin:12px 0 0; font-size:14.5px; color:#9CC3AC; line-height:1.55;">Emparejada con <strong style="color:#FAFBF8; font-weight:600;">Diego</strong>. Describe tu persona en voz alta; anota lo que &eacute;l te cuente.</p>
+      </div>
+
+      <!-- persona to convey -->
+      <div style="margin-top:22px; padding:20px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:16px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 18px 44px -24px rgba(0,0,0,.6);">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; color:#1B2620;">Tu persona &mdash; descr&iacute;bela</div>
+          <span style="font-size:12px; font-weight:600; color:#1C5A93; background:#E6F0F8; border-radius:999px; padding:4px 11px; white-space:nowrap;">3.&ordf; persona</span>
+        </div>
+        <p style="margin:8px 0 14px; font-size:13px; color:#5C6B61;">Habla de ella en tercera persona (&eacute;l/ella). Diego te preguntar&aacute;.</p>
+        <div style="display:flex; flex-direction:column; gap:9px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;"><span style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#5C6B61;">Lugar favorito</span><span style="background:#fff; border:1px solid #DDE3DA; border-radius:8px; padding:6px 11px; font-weight:600; color:#054F2C;">el mercado de Oaxaca</span></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;"><span style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#5C6B61;">Los s&aacute;bados</span><span style="background:#fff; border:1px solid #DDE3DA; border-radius:8px; padding:6px 11px; font-weight:600; color:#054F2C;">baila salsa</span></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;"><span style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#5C6B61;">Una comida</span><span style="background:#fff; border:1px solid #DDE3DA; border-radius:8px; padding:6px 11px; font-weight:600; color:#054F2C;">las empanadas</span></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;"><span style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#5C6B61;">Un sue&ntilde;o</span><span style="background:#fff; border:1px solid #DDE3DA; border-radius:8px; padding:6px 11px; font-weight:600; color:#054F2C;">viajar a Jap&oacute;n</span></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;"><span style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#5C6B61;">Una palabra</span><span style="background:#fff; border:1px solid #DDE3DA; border-radius:8px; padding:6px 11px; font-weight:600; color:#054F2C;">curiosa</span></div>
+        </div>
+      </div>
+
+      <!-- interview -->
+      <div style="margin-top:14px; padding:20px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:16px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 18px 44px -24px rgba(0,0,0,.5);">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; color:#1B2620;">Entrevista a Diego</div>
+          <span style="font-size:12px; font-weight:600; color:#8A5400; background:#FFF6CC; border-radius:999px; padding:4px 11px; white-space:nowrap;">2 / 4</span>
+        </div>
+        <p style="margin:8px 0 14px; font-size:13px; color:#5C6B61;">Pregunta y anota su respuesta &mdash; adivinar est&aacute; bien, esto no se califica.</p>
+
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label style="display:block; font-weight:600; font-size:14px; color:#1B2620; margin-bottom:7px;">&iquest;Cu&aacute;l es su lugar favorito?</label>
+            <div style="padding:11px 14px; background:#fff; border:1.5px solid #C5DDCE; border-radius:10px; font-size:15px; color:#054F2C;">la biblioteca vieja</div>
+          </div>
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:7px;"><label style="font-weight:600; font-size:14px; color:#1B2620;">&iquest;Qu&eacute; hace los s&aacute;bados?</label><span style="font-size:11px; font-weight:600; color:#054F2C; background:#E8F1EB; border-radius:999px; padding:2px 8px; white-space:nowrap;">presente</span></div>
+            <div style="padding:11px 14px; background:#fff; border:1.5px solid #C5DDCE; border-radius:10px; font-size:15px; color:#054F2C;">juega al f&uacute;tbol</div>
+          </div>
+          <div>
+            <label style="display:block; font-weight:600; font-size:14px; color:#1B2620; margin-bottom:7px;">&iquest;Cu&aacute;l es su sue&ntilde;o?</label>
+            <div style="padding:11px 14px; background:#fff; border:1.5px solid #086B3C; border-radius:10px; font-size:15px; color:#9AA69D; box-shadow:0 0 0 4px rgba(8,107,60,.1);">Su respuesta&hellip;</div>
+          </div>
+          <div>
+            <label style="display:block; font-weight:600; font-size:14px; color:#1B2620; margin-bottom:7px;">&iquest;Qu&eacute; comida le encanta?</label>
+            <div style="padding:11px 14px; background:#fff; border:1.5px solid #DDE3DA; border-radius:10px; font-size:15px; color:#9AA69D;">Su respuesta&hellip;</div>
+          </div>
+        </div>
+
+        <div style="margin-top:18px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <span style="font-size:12px; color:#5C6B61;">respuestas sin validar</span>
+          <button style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; color:#03361E; background:#FFDD00; border:none; border-radius:11px; padding:12px 22px; min-height:44px; cursor:pointer; transition:filter .25s var(--glide), transform .3s var(--spring); box-shadow:0 10px 24px -10px rgba(255,221,0,.6);" style-hover="filter:brightness(1.05); transform:translateY(-2px);">Enviar al profesor &rarr;</button>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===== HANDOFF / REPARTO ===== -->
+    <sc-if value="{{ isHandoff }}" hint-placeholder-val="{{ false }}">
+    <div class="screen" style="max-width:1020px; margin:0 auto;">
+      <div style="margin-top:18px; text-align:center;">
+        <h1 style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:40px; line-height:1.04; letter-spacing:-.03em; color:#FAFBF8;">Barajando las <span style="color:#FFDD00;">respuestas</span></h1>
+        <p style="margin:12px auto 0; max-width:520px; font-size:14.5px; color:#9CC3AC; line-height:1.55;">Cada respuesta vuela hacia una persona nueva. Parejas nuevas para entrevistar.</p>
+      </div>
+
+      <sc-if value="{{ showChips }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <!-- new pairings -->
+        <div style="margin-top:22px; display:flex; flex-wrap:wrap; justify-content:center; gap:10px;">
+          <span style="animation:riseSoft .6s var(--glide) both; animation-delay:1.2s; font-size:13px; font-weight:600; color:#FAFBF8; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); border-radius:999px; padding:7px 14px; white-space:nowrap;">Marisol &harr; Diego</span>
+          <span style="animation:riseSoft .6s var(--glide) both; animation-delay:1.35s; font-size:13px; font-weight:600; color:#FAFBF8; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); border-radius:999px; padding:7px 14px; white-space:nowrap;">Valentina &harr; Mateo</span>
+          <span style="animation:riseSoft .6s var(--glide) both; animation-delay:1.5s; font-size:13px; font-weight:600; color:#FAFBF8; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); border-radius:999px; padding:7px 14px; white-space:nowrap;">Luc&iacute;a &harr; Profe</span>
+        </div>
+
+        <!-- 3 new persona cards -->
+        <div style="margin-top:20px; display:grid; grid-template-columns:repeat(3,1fr); gap:16px;">
+
+          <div style="animation:cardPop .7s var(--spring) both; animation-delay:.05s; padding:18px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:16px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 18px 44px -24px rgba(0,0,0,.6);">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:13px;"><span style="width:9px; height:9px; border-radius:50%; background:#086B3C;"></span><span style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14px; color:#1B2620;">Persona nueva 01</span></div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+              <span style="--sx:-160px;--sy:-120px;--sr:-16deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.15s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">la playa</span>
+              <span style="--sx:200px;--sy:-90px;--sr:12deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.28s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">lee novelas</span>
+              <span style="--sx:-120px;--sy:160px;--sr:18deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.42s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">los tamales</span>
+              <span style="--sx:150px;--sy:130px;--sr:-10deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.55s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">ser chef</span>
+              <span style="--sx:-200px;--sy:30px;--sr:8deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.68s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">valiente</span>
+            </div>
+          </div>
+
+          <div style="animation:cardPop .7s var(--spring) both; animation-delay:.18s; padding:18px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:16px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 18px 44px -24px rgba(0,0,0,.6);">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:13px;"><span style="width:9px; height:9px; border-radius:50%; background:#E0A800;"></span><span style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14px; color:#1B2620;">Persona nueva 02</span></div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+              <span style="--sx:170px;--sy:-140px;--sr:14deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.22s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">el mercado de Oaxaca</span>
+              <span style="--sx:-180px;--sy:-60px;--sr:-12deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.36s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">baila salsa</span>
+              <span style="--sx:120px;--sy:150px;--sr:16deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.5s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">viajar a Jap&oacute;n</span>
+              <span style="--sx:-140px;--sy:120px;--sr:-18deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.63s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">curiosa</span>
+              <span style="--sx:210px;--sy:40px;--sr:10deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.76s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">las empanadas</span>
+            </div>
+          </div>
+
+          <div style="animation:cardPop .7s var(--spring) both; animation-delay:.31s; padding:18px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:16px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 18px 44px -24px rgba(0,0,0,.6);">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:13px;"><span style="width:9px; height:9px; border-radius:50%; background:#2D7DC4;"></span><span style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14px; color:#1B2620;">Persona nueva 03</span></div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+              <span style="--sx:-150px;--sy:-150px;--sr:-14deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.3s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">el parque</span>
+              <span style="--sx:190px;--sy:-70px;--sr:13deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.44s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">canta en un coro</span>
+              <span style="--sx:-110px;--sy:150px;--sr:17deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.58s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">la paella</span>
+              <span style="--sx:160px;--sy:120px;--sr:-9deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.71s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">abrir un caf&eacute;</span>
+              <span style="--sx:-210px;--sy:20px;--sr:7deg; animation:shuffleIn .85s var(--spring) both; animation-delay:.84s; background:#fff; border:1px solid #DDE3DA; border-radius:9px; padding:7px 11px; font-weight:600; font-size:13.5px; color:#054F2C;">amable</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- controls -->
+      <div style="margin-top:26px; display:flex; align-items:center; justify-content:center; gap:12px;">
+        <button onClick="{{ replay }}" style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14px; color:#FAFBF8; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.16); border-radius:11px; padding:12px 20px; min-height:44px; cursor:pointer; transition:background .25s var(--glide), transform .3s var(--spring);" style-hover="background:rgba(255,255,255,.13); transform:translateY(-2px);">&#8635; Repetir</button>
+        <button onClick="{{ goConv }}" style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; color:#03361E; background:#FFDD00; border:none; border-radius:11px; padding:12px 24px; min-height:44px; cursor:pointer; transition:filter .25s var(--glide), transform .3s var(--spring); box-shadow:0 10px 24px -10px rgba(255,221,0,.6);" style-hover="filter:brightness(1.05); transform:translateY(-2px);">Ir a la conversaci&oacute;n &rarr;</button>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===== TEACHER ===== -->
+    <sc-if value="{{ isTeacher }}" hint-placeholder-val="{{ false }}">
+    <div class="screen" style="max-width:1020px; margin:0 auto;">
+      <div style="margin-top:18px; display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap;">
+        <div>
+          <h1 style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:38px; line-height:1.04; letter-spacing:-.03em; color:#FAFBF8;">Monitor <span style="color:#FFDD00;">en vivo</span></h1>
+          <p style="margin:10px 0 0; font-size:14px; color:#9CC3AC;">Los nombres aparecen al unirse &middot; los puntos muestran la fase &middot; las se&ntilde;ales marcan a quien se atasca.</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:12px; font-weight:600; color:#03361E; background:#FFDD00; border-radius:999px; padding:5px 12px; white-space:nowrap;">Fase: entrada</span>
+          <span style="font-size:12px; font-weight:600; color:#C5DDCE; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:5px 12px; white-space:nowrap;">6 unidos</span>
+        </div>
+      </div>
+
+      <!-- activity control -->
+      <div style="margin-top:20px; display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap; padding:20px 22px; background:rgba(250,251,248,.06); border:1px solid rgba(255,255,255,.12); border-radius:16px;">
+        <div>
+          <div style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:17px; color:#FAFBF8;">Fase de entrada</div>
+          <p style="margin:4px 0 0; font-size:13.5px; color:#9CC3AC;"><strong style="color:#FFDD00; font-weight:700;">4</strong> de 6 han pasado &middot; en clase el reparto espera a todos. <span style="color:#C5DDCE;">Demo: pulsa para ver el reparto.</span></p>
+        </div>
+        <button onClick="{{ goReparto }}" style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; color:#03361E; background:#FFDD00; border:none; border-radius:11px; padding:12px 22px; min-height:44px; cursor:pointer; transition:filter .25s var(--glide), transform .3s var(--spring); box-shadow:0 10px 24px -10px rgba(255,221,0,.6);" style-hover="filter:brightness(1.05); transform:translateY(-2px);">Redistribuir y emparejar &rarr;</button>
+      </div>
+
+      <!-- roster -->
+      <div style="margin-top:16px; display:grid; grid-template-columns:repeat(3,1fr); gap:14px;">
+
+        <div style="padding:16px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:14px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 14px 36px -22px rgba(0,0,0,.6); transition:transform .4s var(--spring);" style-hover="transform:translateY(-3px);">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+            <div><div style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; color:#1B2620;">Marisol</div><div style="display:flex; align-items:center; gap:6px; margin-top:5px;"><span style="width:8px; height:8px; border-radius:50%; background:#2E8B57;"></span><span style="font-size:12px; font-weight:500; color:#5C6B61;">Lista</span></div></div>
+            <span style="font-size:11px; font-weight:700; color:#21724A; background:#E8F1EB; border-radius:999px; padding:3px 9px; white-space:nowrap;">lista</span>
+          </div>
+        </div>
+
+        <div style="padding:16px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:14px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 14px 36px -22px rgba(0,0,0,.6); transition:transform .4s var(--spring);" style-hover="transform:translateY(-3px);">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+            <div><div style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; color:#1B2620;">Diego</div><div style="display:flex; align-items:center; gap:6px; margin-top:5px;"><span style="width:8px; height:8px; border-radius:50%; background:#2E8B57;"></span><span style="font-size:12px; font-weight:500; color:#5C6B61;">Listo</span></div></div>
+            <span style="font-size:11px; font-weight:700; color:#21724A; background:#E8F1EB; border-radius:999px; padding:3px 9px; white-space:nowrap;">listo</span>
+          </div>
+        </div>
+
+        <div style="padding:16px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:14px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 14px 36px -22px rgba(0,0,0,.6); transition:transform .4s var(--spring);" style-hover="transform:translateY(-3px);">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+            <div><div style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; color:#1B2620;">Valentina</div><div style="display:flex; align-items:center; gap:6px; margin-top:5px;"><span style="width:8px; height:8px; border-radius:50%; background:#E0A800;"></span><span style="font-size:12px; font-weight:500; color:#5C6B61;">Rellenando</span></div></div>
+          </div>
+        </div>
+
+        <div style="padding:16px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:14px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 14px 36px -22px rgba(0,0,0,.6); transition:transform .4s var(--spring);" style-hover="transform:translateY(-3px);">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+            <div><div style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; color:#1B2620;">Mateo</div><div style="display:flex; align-items:center; gap:6px; margin-top:5px;"><span style="width:8px; height:8px; border-radius:50%; background:#E0A800; animation:pulseDot 1.6s var(--glide) infinite;"></span><span style="font-size:12px; font-weight:500; color:#5C6B61;">Validando</span></div></div>
+          </div>
+        </div>
+
+        <div style="padding:16px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:14px; box-shadow:0 0 0 2px rgba(214,69,69,.5), inset 0 1px 0 rgba(255,255,255,.7), 0 14px 36px -22px rgba(0,0,0,.6); transition:transform .4s var(--spring);" style-hover="transform:translateY(-3px);">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+            <div><div style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; color:#1B2620;">Luc&iacute;a</div><div style="display:flex; align-items:center; gap:6px; margin-top:5px;"><span style="width:8px; height:8px; border-radius:50%; background:#E0A800;"></span><span style="font-size:12px; font-weight:500; color:#5C6B61;">Rellenando</span></div></div>
+            <span style="font-size:11px; font-weight:700; color:#B83333; background:#FBE8E8; border-radius:999px; padding:3px 9px; white-space:nowrap;">atascada</span>
+          </div>
+          <div style="margin-top:11px; font-size:12px; color:#B83333; font-weight:500;">2 bloqueos de adecuaci&oacute;n &middot; orientar</div>
+        </div>
+
+        <div style="padding:16px; background:linear-gradient(157deg,#F4F7F2 0%,#E9EFE9 100%); border-radius:14px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 14px 36px -22px rgba(0,0,0,.6); opacity:.5;">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+            <div><div style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; color:#1B2620;">Tom&aacute;s</div><div style="display:flex; align-items:center; gap:6px; margin-top:5px;"><span style="width:8px; height:8px; border-radius:50%; background:#9AA69D;"></span><span style="font-size:12px; font-weight:500; color:#5C6B61;">Fuera de la ronda</span></div></div>
+            <span style="font-size:11px; font-weight:700; color:#5C6B61; background:#F1F4EF; border-radius:999px; padding:3px 9px; white-space:nowrap;">fuera</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { screen: 'input', dreamPassed: false, showChips: true };
+
+  triggerHandoff() {
+    this.setState({ screen: 'handoff', showChips: false });
+    setTimeout(() => this.setState({ showChips: true }), 50);
+  }
+
+  go(screen) {
+    if (screen === 'handoff') return this.triggerHandoff();
+    this.setState({ screen });
+  }
+
+  renderVals() {
+    const s = this.state.screen;
+    const readyN = this.state.dreamPassed ? 4 : 3;
+    const arcOffset = Math.round(251 * (1 - readyN / 5));
+    const order = { input: 0, conv: 1, handoff: 2, teacher: 3 };
+    const idx = order[s] ?? 0;
+    const activeC = '#03361E';
+    const idleC = '#9CC3AC';
+    return {
+      isInput: s === 'input',
+      isConv: s === 'conv',
+      isHandoff: s === 'handoff',
+      isTeacher: s === 'teacher',
+      goInput: () => this.go('input'),
+      goConv: () => this.go('conv'),
+      goReparto: () => this.go('handoff'),
+      goTeacher: () => this.go('teacher'),
+      replay: () => this.triggerHandoff(),
+      indicatorX: (idx * 134) + 'px',
+      c1: s === 'input' ? activeC : idleC,
+      c2: s === 'conv' ? activeC : idleC,
+      c3: s === 'teacher' ? activeC : idleC,
+      c4: s === 'handoff' ? activeC : idleC,
+      dreamPassed: this.state.dreamPassed,
+      dreamOpen: !this.state.dreamPassed,
+      passDream: () => this.setState({ dreamPassed: true }),
+      readyN,
+      arcOffset,
+      showChips: this.state.showChips,
+    };
+  }
+}
+</script>
+</body>
+</html>

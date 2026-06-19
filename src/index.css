@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   VuelaAbuela — "Despegue" theme layer (§12 theming seam).
+   Deep forest-green canvas, crisp geometric type, soft green-gray surface cards
+   with white inset boxes, yellow accent, abstract flight motion. No literal
+   icons. Palette = brand handoff verbatim (forest green #086B3C + golden yellow
+   #FFDD00) + two dark-canvas tokens.
+   ============================================================================ */
+
+@theme {
+  /* ---- Neutrals (foundation) ---- */
+  --color-neutral-bg:         #FAFBF8;
+  --color-neutral-surface:    #F1F4EF;
+  --color-neutral-border:     #DDE3DA;
+  --color-neutral-text-muted: #5C6B61;
+  --color-neutral-text-body:  #1B2620;
+
+  /* ---- Brand green ---- */
+  --color-green-50:  #E8F1EB;
+  --color-green-100: #C5DDCE;
+  --color-green-500: #086B3C;
+  --color-green-700: #054F2C;
+  --color-green-900: #03361E;
+
+  /* ---- Brand yellow + amber (accent only — NEVER body text) ---- */
+  --color-yellow-soft: #FFF6CC;
+  --color-yellow-500:  #FFDD00;
+  --color-amber-mid:   #E0A800;
+  --color-amber-text:  #946C00;
+  --color-amber-hint:  #8A5400;
+
+  /* ---- Cool accent — blue ---- */
+  --color-blue-50:  #E6F0F8;
+  --color-blue-500: #2D7DC4;
+  --color-blue-700: #1C5A93;
+
+  /* ---- Semantic status (base = fill/icon; -text = small text on white) ---- */
+  --color-success: #2E8B57;  --color-success-text: #21724A;
+  --color-warning: #E08A00;  --color-warning-text: #8A5400;
+  --color-error:   #D64545;  --color-error-text:   #B83333;
+  --color-info:    #2D7DC4;  --color-info-text:    #1C5A93;
+
+  /* ---- Despegue-only (dark canvas world) ---- */
+  --color-canvas:        #03361E;
+  --color-on-dark-muted: #9CC3AC;
+  --color-on-dark-soft:  #C5DDCE;
+
+  /* ---- Type ---- */
+  --font-display: "Space Grotesk", "Trebuchet MS", system-ui, sans-serif;
+  --font-sans:    "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+
+  /* ---- Radius ---- */
+  --radius-card: 16px;
+  --radius-box:  10px;
+  --radius-pill: 999px;
+
+  /* ---- Motion ---- */
+  --ease-glide:  cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.45, 0.5, 1);
+}
+
+/* ----------------------------------------------------------------------------
+   The signature "rich card" surface. Soft green-gray gradient + an inner top
+   highlight so it never reads as clinical flat white. Put values/inputs in PURE
+   WHITE inset boxes on top of this (that gray↔white layering IS the look).
+   ---------------------------------------------------------------------------- */
+.va-surface {
+  background: linear-gradient(157deg, #F4F7F2 0%, #E9EFE9 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 16px 40px -22px rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-card);
+}
+.va-inset {
+  background: #fff;
+  border: 1px solid var(--color-neutral-border);
+  border-radius: var(--radius-box);
+}
+
+/* dark translucent panel on the canvas (name card, activity bar, etc.) */
+.va-dark-panel {
+  background: rgba(250, 251, 248, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-card);
+}
+
+/* the on-brand "marker" highlight under a word */
+.va-mark {
+  background: linear-gradient(transparent 62%, var(--color-yellow-500) 62%);
+}
+
+/* ----------------------------------------------------------------------------
+   Base — dark canvas. The body owns the deep green; ambient glows are added per
+   shell via <GlowField/> behind a position:relative parent.
+   ---------------------------------------------------------------------------- */
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-neutral-bg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+button:focus-visible { outline: 3px solid var(--color-yellow-500); outline-offset: 3px; }
+
+/* ----------------------------------------------------------------------------
+   Keyframes — the full motion kit. `va-screenIn` animates transform ONLY so a
+   screen can never get stranded invisible. Decorative reveals DO fade.
+   ---------------------------------------------------------------------------- */
+@keyframes va-drift   { 0%{transform:translate(0,0)} 50%{transform:translate(20px,-26px)} 100%{transform:translate(0,0)} }
+@keyframes va-driftB  { 0%{transform:translate(0,0)} 50%{transform:translate(-26px,20px)} 100%{transform:translate(0,0)} }
+@keyframes va-pulseDot{ 0%,100%{opacity:.45;transform:scale(.82)} 50%{opacity:1;transform:scale(1.08)} }
+@keyframes va-screenIn{ 0%{transform:translateY(20px) scale(.992)} 100%{transform:translateY(0) scale(1)} }
+@keyframes va-rise    { 0%{opacity:0;transform:translateY(18px) scale(.99)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+@keyframes va-riseSoft{ 0%{opacity:0;transform:translateY(12px)} 100%{opacity:1;transform:translateY(0)} }
+@keyframes va-cardPop { 0%{opacity:0;transform:translateY(28px) scale(.95)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+@keyframes va-shuffleIn {
+  0%   { opacity:0; transform: translate(var(--sx,0), var(--sy,0)) rotate(var(--sr,0deg)) scale(.65); }
+  55%  { opacity:1; }
+  100% { opacity:1; transform: translate(0,0) rotate(0) scale(1); }
+}
+@keyframes va-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(255,221,0,.45); }
+  70%  { box-shadow: 0 0 0 28px rgba(255,221,0,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,221,0,0); }
+}
+
+.va-screen { animation: va-screenIn .55s var(--ease-glide) both; }
+.va-rise   { animation: va-rise .5s var(--ease-spring) both; }
+
+/* ----------------------------------------------------------------------------
+   Accessibility — collapse all motion to ~instant for users who opt out.
+   ---------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

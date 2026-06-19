@@ -1,0 +1,140 @@
+/* ============================================================================
+   VuelaAbuela — "Despegue" theme layer
+   ----------------------------------------------------------------------------
+   The single source of truth for color, type, and motion in the redesign.
+   Merge this into `src/index.css`. The project already uses Tailwind v4 with an
+   `@theme { … }` block — replace the placeholder "sky/sunset" tokens there with
+   the `@theme` block below, then append the @keyframes / base / utilities.
+
+   Design language: deep forest-green canvas, crisp geometric type, soft
+   green-gray "surface" cards with white inset boxes, and abstract flight motion
+   (drift / glide / spring) — no literal icons.
+
+   Palette is the brand handoff verbatim (forest green #086B3C + golden yellow
+   #FFDD00) extended with two Despegue-only tokens for the dark canvas world:
+   `--color-canvas` and `--color-on-dark-muted`.
+   ============================================================================ */
+
+/* Fonts — prefer the <link> in index.html (see index-head.html). This @import
+   is a fallback if you cannot edit index.html. */
+/* @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap'); */
+
+@theme {
+  /* ---- Neutrals (foundation) ---- */
+  --color-neutral-bg:         #FAFBF8; /* lightest — light text on dark, white insets */
+  --color-neutral-surface:    #F1F4EF; /* card surface base */
+  --color-neutral-border:     #DDE3DA;
+  --color-neutral-text-muted: #5C6B61;
+  --color-neutral-text-body:  #1B2620;
+
+  /* ---- Brand green ---- */
+  --color-green-50:  #E8F1EB;
+  --color-green-100: #C5DDCE;
+  --color-green-500: #086B3C; /* primary */
+  --color-green-700: #054F2C; /* hover / pressed */
+  --color-green-900: #03361E; /* darkest — also the canvas */
+
+  /* ---- Brand yellow + amber (accent only — NEVER body text) ---- */
+  --color-yellow-soft: #FFF6CC;
+  --color-yellow-500:  #FFDD00; /* accents, highlight marks, dark-text-on-yellow buttons */
+  --color-amber-mid:   #E0A800; /* icons / borders / large graphics */
+  --color-amber-text:  #946C00; /* the only yellow-family value safe as text on white */
+  --color-amber-hint:  #8A5400; /* grammar-hint copy on light cards */
+
+  /* ---- Cool accent — blue ---- */
+  --color-blue-50:  #E6F0F8;
+  --color-blue-500: #2D7DC4;
+  --color-blue-700: #1C5A93;
+
+  /* ---- Semantic status (base = fill/icon; -text = small text on white) ---- */
+  --color-success: #2E8B57;  --color-success-text: #21724A;
+  --color-warning: #E08A00;  --color-warning-text: #8A5400;
+  --color-error:   #D64545;  --color-error-text:   #B83333;
+  --color-info:    #2D7DC4;  --color-info-text:    #1C5A93;
+
+  /* ---- Despegue-only (dark canvas world) ---- */
+  --color-canvas:        #03361E; /* page background (== green-900) */
+  --color-on-dark-muted: #9CC3AC; /* muted text/labels ON the dark canvas */
+  --color-on-dark-soft:  #C5DDCE; /* secondary text on dark (== green-100) */
+
+  /* ---- Type ---- */
+  --font-display: "Space Grotesk", "Trebuchet MS", system-ui, sans-serif; /* headings, numerals, wordmark */
+  --font-sans:    "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;  /* body, UI, buttons */
+
+  /* ---- Radius ---- */
+  --radius-card: 16px;
+  --radius-box:  10px;  /* inset white boxes */
+  --radius-pill: 999px;
+
+  /* ---- Motion ---- */
+  --ease-glide:  cubic-bezier(0.22, 1, 0.36, 1);   /* smooth deceleration — transitions, drifts */
+  --ease-spring: cubic-bezier(0.34, 1.45, 0.5, 1); /* slight overshoot — pops, taps, the switcher */
+}
+
+/* ----------------------------------------------------------------------------
+   The signature "rich card" surface. Soft green-gray gradient + an inner top
+   highlight so it never reads as clinical flat white. Put answers/values in
+   PURE WHITE inset boxes on top of this (that gray↔white layering IS the look).
+   Usage: <div class="va-surface"> … </div>
+   ---------------------------------------------------------------------------- */
+.va-surface {
+  background: linear-gradient(157deg, #F4F7F2 0%, #E9EFE9 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 16px 40px -22px rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-card);
+}
+/* A white inset box for a value/input sitting on .va-surface */
+.va-inset {
+  background: #fff;
+  border: 1px solid var(--color-neutral-border);
+  border-radius: var(--radius-box);
+}
+
+/* ----------------------------------------------------------------------------
+   Base — dark canvas. The body owns the deep green; the three ambient glows are
+   added per-screen via <GlowField/> (see despegue.tsx) so they sit behind a
+   `position:relative` shell.
+   ---------------------------------------------------------------------------- */
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-neutral-bg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+button:focus-visible { outline: 3px solid var(--color-yellow-500); outline-offset: 3px; }
+
+/* ----------------------------------------------------------------------------
+   Keyframes — the full motion kit. See animation-cookbook.md for when to use
+   each. IMPORTANT: `screenIn` deliberately animates transform ONLY (no opacity)
+   so a screen can never get stranded invisible if the animation timeline is
+   throttled. Decorative reveals (shuffleIn / cardPop / riseSoft) DO fade.
+   ---------------------------------------------------------------------------- */
+@keyframes va-drift   { 0%{transform:translate(0,0)} 50%{transform:translate(20px,-26px)} 100%{transform:translate(0,0)} }
+@keyframes va-driftB  { 0%{transform:translate(0,0)} 50%{transform:translate(-26px,20px)} 100%{transform:translate(0,0)} }
+@keyframes va-pulseDot{ 0%,100%{opacity:.45;transform:scale(.82)} 50%{opacity:1;transform:scale(1.08)} }
+@keyframes va-screenIn{ 0%{transform:translateY(20px) scale(.992)} 100%{transform:translateY(0) scale(1)} }
+@keyframes va-rise    { 0%{opacity:0;transform:translateY(18px) scale(.99)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+@keyframes va-riseSoft{ 0%{opacity:0;transform:translateY(12px)} 100%{opacity:1;transform:translateY(0)} }
+@keyframes va-cardPop { 0%{opacity:0;transform:translateY(28px) scale(.95)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+/* shuffleIn flies a chip in from a per-element offset (set --sx/--sy/--sr inline) */
+@keyframes va-shuffleIn {
+  0%   { opacity:0; transform: translate(var(--sx,0), var(--sy,0)) rotate(var(--sr,0deg)) scale(.65); }
+  55%  { opacity:1; }
+  100% { opacity:1; transform: translate(0,0) rotate(0) scale(1); }
+}
+
+/* Screen-enter wrapper (apply to the root of each routed screen) */
+.va-screen { animation: va-screenIn .55s var(--ease-glide) both; }
+
+/* ----------------------------------------------------------------------------
+   Accessibility — collapse all motion to ~instant for users who opt out.
+   Animations still resolve to their END state (content stays visible).
+   ---------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
