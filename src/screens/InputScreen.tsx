@@ -4,7 +4,7 @@ import { useRoom } from '../RoomContext'
 import {
   Screen, Surface, Button, Pill, ProgressArc, HeroTitle, StubBadge, T,
 } from '../components/despegue'
-import { validateInput, isLiveValidation, VALIDATION_MODEL } from '../validation/validator'
+import { validateInput, isLiveValidation, probeRemoteValidation, VALIDATION_MODEL } from '../validation/validator'
 import type { Prompt, StudentId, ValidationResult } from '../types'
 
 type RowFeedback =
@@ -45,6 +45,16 @@ export function InputScreen({ studentId }: { studentId: StudentId }) {
 
   const passedCount = phase1.filter((p) => cells[p.id]?.status === 'passed').length
   const allPassed = passedCount === phase1.length
+
+  // Live-validation badge: artifact runtime is synchronous; otherwise probe the
+  // server function once to see whether a real (keyed) endpoint is wired.
+  const [liveValidation, setLiveValidation] = useState(isLiveValidation())
+  useEffect(() => {
+    if (liveValidation) return
+    let cancelled = false
+    probeRemoteValidation().then((ready) => { if (ready && !cancelled) setLiveValidation(true) })
+    return () => { cancelled = true }
+  }, [liveValidation])
 
   useEffect(() => {
     const me = state!.students[studentId]
@@ -122,7 +132,7 @@ export function InputScreen({ studentId }: { studentId: StudentId }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
         <Pill tone="brand">el presente</Pill>
         <Pill tone="onDark">3.ª persona</Pill>
-        {isLiveValidation() ? (
+        {liveValidation ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
             color: T.onDarkSoft, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)',
             borderRadius: 999, padding: '4px 11px' }}>

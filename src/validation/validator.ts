@@ -89,21 +89,46 @@ export function parseResult(raw: string): ValidationResult | null {
   }
 }
 
+// Unparseable model output -> conservative re-enter, never a false pass.
+const UNREADABLE: ValidationResult = { action: 'reenter', reason: 'Could not read that — please try again.' }
+
+// POST the built prompt to the server function (Vercel), which calls Anthropic
+// with a secret key. Returns null if the endpoint is absent/erroring (e.g. local
+// `vite` with no functions) so the caller can fall back to the heuristic.
+async function callRemote(prompt: string): Promise<string | null> {
+  if (typeof fetch === 'undefined') return null
+  try {
+    const r = await fetch('/api/validate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    })
+    if (!r.ok) return null
+    const data = await r.json()
+    return typeof data?.text === 'string' ? data.text : null
+  } catch {
+    return null
+  }
+}
+
 export async function validateInput(args: ValidateArgs): Promise<ValidationResult> {
   const prompt = buildPrompt(args)
 
+  // 1. Artifact runtime — real model, no key needed.
   if (typeof window !== 'undefined' && window.claude?.complete) {
     try {
       const raw = await window.claude.complete(prompt)
-      const parsed = parseResult(raw)
-      if (parsed) return parsed
-      // unparseable -> conservative re-enter rather than a false pass
-      return { action: 'reenter', reason: 'Could not read that — please try again.' }
+      return parseResult(raw) ?? UNREADABLE
     } catch (e) {
-      console.warn('[validator] live call failed, using heuristic fallback', e)
+      console.warn('[validator] artifact call failed, trying server', e)
     }
   }
 
+  // 2. Server function — real model via secret key (deployed web app).
+  const remote = await callRemote(prompt)
+  if (remote !== null) return parseResult(remote) ?? UNREADABLE
+
+  // 3. Heuristic fallback — NOT the real validator. Keeps local dev demoable.
   return heuristicFallback(args)
 }
 
@@ -131,5 +156,20 @@ function heuristicFallback(args: ValidateArgs): ValidationResult {
   return { action: 'pass' }
 }
 
+// Synchronous: true when the artifact runtime is present (no probe needed).
 export const isLiveValidation = () =>
   typeof window !== 'undefined' && !!window.claude?.complete
+
+// Async: does the deployed server function have a key wired? Used by the UI to
+// show the "live validation" badge when running on the web (no artifact).
+export async function probeRemoteValidation(): Promise<boolean> {
+  if (typeof fetch === 'undefined') return false
+  try {
+    const r = await fetch('/api/validate', { method: 'GET' })
+    if (!r.ok) return false
+    const data = await r.json()
+    return data?.ready === true
+  } catch {
+    return false
+  }
+}

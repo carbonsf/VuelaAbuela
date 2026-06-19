@@ -1,0 +1,73 @@
+// Vercel serverless function — the real §5 validator path for web deployments.
+// The browser has no `window.claude` outside Anthropic's artifact runtime, so
+// the client POSTs the already-built validator prompt here and we call the
+// Anthropic API server-side with a secret key. Returns the model's raw text;
+// the client parses it with the same parseResult() it uses everywhere.
+//
+// Requires env ANTHROPIC_API_KEY (set in Vercel project settings).
+//   GET  -> { ready: <bool> }   health probe for the "live validation" badge
+//   POST { prompt } -> { text }  one validation call
+
+const MODEL = 'claude-sonnet-4-6'
+const MAX_TOKENS = 1000
+const MAX_PROMPT_CHARS = 8000 // cap payload — this is an open endpoint
+
+export default async function handler(req, res) {
+  const key = process.env.ANTHROPIC_API_KEY
+
+  if (req.method === 'GET') {
+    res.status(200).json({ ready: !!key })
+    return
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  if (!key) {
+    res.status(500).json({ error: 'Server missing ANTHROPIC_API_KEY' })
+    return
+  }
+
+  let body = req.body
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body) } catch { body = {} }
+  }
+  const prompt = body && typeof body.prompt === 'string' ? body.prompt : ''
+  if (!prompt) {
+    res.status(400).json({ error: 'Missing prompt' })
+    return
+  }
+  if (prompt.length > MAX_PROMPT_CHARS) {
+    res.status(413).json({ error: 'Prompt too large' })
+    return
+  }
+
+  try {
+    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: MAX_TOKENS,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+    if (!upstream.ok) {
+      const detail = await upstream.text()
+      res.status(502).json({ error: 'Upstream error', status: upstream.status, detail })
+      return
+    }
+    const data = await upstream.json()
+    const text = (data.content || [])
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('')
+    res.status(200).json({ text })
+  } catch (e) {
+    res.status(502).json({ error: 'Request failed', detail: String(e) })
+  }
+}
