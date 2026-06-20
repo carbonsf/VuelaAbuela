@@ -47,7 +47,7 @@ GRAMMAR TARGET: ${config.grammarTarget}
 Check THREE dimensions, in this priority order:
 1. APPROPRIATENESS (weighted FIRST — if it fails, nothing else matters). Bar is PG, not PG-13. No profanity, slurs, sexual content, violence, drugs, or thinly-veiled dodges. Judge intended meaning across languages and obfuscation.
 2. FIT — does the response actually answer the prompt, IN ${langName(config.language)}? An answer written in another language (e.g. English "teacher" instead of "profesora") does NOT fit -> reenter and ask for it in ${langName(config.language)}. Accepted loanwords and proper nouns are fine. Judge the answer as the student's OWN words: person/perspective (I vs. he/she, my vs. their) is transformed downstream, so NEVER reenter or correct for first- vs third-person.
-3. GRAMMAR/MEANING — spelling and ${langName(config.language)} conventions (gender agreement, articles, accents) appropriate to the grammar target. Ignore surrounding punctuation and emphasis, and accept established loanwords; flag only genuine errors.
+3. GRAMMAR/MEANING — spelling and ${langName(config.language)} conventions. ALWAYS flag gender-agreement errors between an article/adjective and its noun (e.g. "una pez" must be "un pez", "el casa" must be "la casa", "un profesora" must be "una profesora") — even when gender is NOT the lesson's grammar target, because a mismatched answer corrupts the persona it's redistributed into. Also check accents and the grammar target (${config.grammarTarget}). Ignore surrounding punctuation and emphasis, and accept established loanwords. Do NOT invent errors for correct irregular gender ("el agua", "la mano", "el problema", "el día").
 
 Return EXACTLY ONE JSON object, no prose, no markdown fences. One of:
 {"action":"pass"}

@@ -48,6 +48,8 @@ export const CORPUS: CorpusCase[] = [
   { id: 'correct-accent-point', promptId: 'place', value: 'Mexico', grammarAttempt: 0, expect: 'correct', expectReveal: false, note: 'missing accent (México) — point, do not reveal' },
   { id: 'correct-gender-point', promptId: 'occupation', value: 'un profesora', grammarAttempt: 0, expect: 'correct', expectReveal: false, note: 'gender agreement (un/una)' },
   { id: 'correct-accent2-point', promptId: 'occupation', value: 'medico', grammarAttempt: 0, expect: 'correct', expectReveal: false, edge: true, note: 'missing accent (médico) on an otherwise-valid answer' },
+  { id: 'correct-gender-noun', promptId: 'object', value: 'una pez', grammarAttempt: 0, expect: 'correct', expectReveal: false, note: 'gender mismatch (el pez): must be caught even though gender is not the lesson target' },
+  { id: 'correct-gender-article', promptId: 'place', value: 'el casa', grammarAttempt: 0, expect: 'correct', expectReveal: false, note: 'article/noun gender mismatch (la casa)' },
 
   // ---- CORRECT (reveal): grammarAttempt ≥ 1 → hint + corrected answer ----
   { id: 'correct-accent-reveal', promptId: 'place', value: 'Mexico', grammarAttempt: 1, expect: 'correct', expectReveal: true, note: 'second attempt → reveal "México"' },
@@ -63,4 +65,7 @@ export const CORPUS: CorpusCase[] = [
   { id: 'pass-first-person', promptId: 'summer', value: 'fui a la playa', grammarAttempt: 0, expect: 'pass', edge: true, note: 'first person; perspective is transformed downstream — validator should not reject' },
   { id: 'pass-extra-punct', promptId: 'occupation', value: '¡profesora!', grammarAttempt: 0, expect: 'pass', edge: true, note: 'punctuation enthusiasm — do not nitpick' },
   { id: 'pass-male-form', promptId: 'occupation', value: 'doctor', grammarAttempt: 0, expect: 'pass', note: 'valid masculine form — gender is not an error without a conflicting article' },
+  { id: 'pass-irregular-agua', promptId: 'object', value: 'el agua', grammarAttempt: 0, expect: 'pass', edge: true, note: 'correct irregular: "el agua" (feminine noun, masculine article) must NOT be over-corrected' },
+  { id: 'pass-irregular-mano', promptId: 'object', value: 'la mano', grammarAttempt: 0, expect: 'pass', edge: true, note: 'correct irregular: "la mano" (feminine despite -o) must NOT be over-corrected' },
+  { id: 'pass-irregular-problema', promptId: 'object', value: 'un problema', grammarAttempt: 0, expect: 'pass', edge: true, note: 'correct irregular: "un problema" (masculine despite -a)' },
 ]

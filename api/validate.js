@@ -13,6 +13,17 @@ const DEFAULT_MAX_TOKENS = 1000
 const TOKEN_CEILING = 4096 // hard cap regardless of requested budget
 const MAX_PROMPT_CHARS = 16000 // cap payload — this is an open endpoint
 
+// Same-origin guard: a POST must come from a page served by this same host
+// (the app itself). Blocks casual off-site curling of the relay without any
+// per-IP throttling — which would wrongly punish a whole class behind one
+// school NAT. Origin/Referer are set by browsers and not forgeable from page JS.
+function sameOrigin(req) {
+  const host = req.headers.host
+  const src = req.headers.origin || req.headers.referer
+  if (!host || !src) return false
+  try { return new URL(src).host === host } catch { return false }
+}
+
 export default async function handler(req, res) {
   const key = process.env.ANTHROPIC_API_KEY
 
@@ -22,6 +33,10 @@ export default async function handler(req, res) {
   }
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  if (!sameOrigin(req)) {
+    res.status(403).json({ error: 'Forbidden' })
     return
   }
   if (!key) {
