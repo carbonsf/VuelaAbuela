@@ -9,8 +9,9 @@
 //   POST { prompt } -> { text }  one validation call
 
 const MODEL = 'claude-sonnet-4-6'
-const MAX_TOKENS = 1000
-const MAX_PROMPT_CHARS = 8000 // cap payload — this is an open endpoint
+const DEFAULT_MAX_TOKENS = 1000
+const TOKEN_CEILING = 4096 // hard cap regardless of requested budget
+const MAX_PROMPT_CHARS = 16000 // cap payload — this is an open endpoint
 
 export default async function handler(req, res) {
   const key = process.env.ANTHROPIC_API_KEY
@@ -41,6 +42,10 @@ export default async function handler(req, res) {
     res.status(413).json({ error: 'Prompt too large' })
     return
   }
+  const requested = Number(body && body.maxTokens)
+  const maxTokens = Number.isFinite(requested)
+    ? Math.min(Math.max(1, Math.floor(requested)), TOKEN_CEILING)
+    : DEFAULT_MAX_TOKENS
 
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
@@ -52,7 +57,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: MAX_TOKENS,
+        max_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }],
       }),
     })

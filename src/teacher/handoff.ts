@@ -5,6 +5,7 @@
 // ============================================================================
 import { EMOJI_TOKENS } from '../lesson/emojiTokens'
 import { buildPersonas } from '../redistribution'
+import { cleansePersonas } from '../validation/cleanse'
 import { FixedPairsStrategy } from '../seams'
 import type { Transport } from '../transport/Transport'
 import type { Group, InputCell, LessonConfig, RoomState, Student, StudentId } from '../types'
@@ -64,7 +65,10 @@ export async function runHandoff(transport: Transport, state: RoomState, opts: H
 
   // augmented state for persona building
   const augmented: RoomState = { ...state, students, inputs }
-  const personas = buildPersonas(augmented, config)
+  const rawPersonas = buildPersonas(augmented, config)
+  // Cleanse: neutralize author-bound person/gender markers so each redistributed
+  // item fits its new persona. Best-effort — falls back to raw on any failure.
+  const personas = await cleansePersonas(rawPersonas, config)
 
   let pairPool = shuffle(active)
   if (active.length % 2 === 1 && opts.fallback === 'force-trio') {

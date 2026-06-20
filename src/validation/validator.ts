@@ -13,6 +13,12 @@ import type { LessonConfig, Prompt, ValidationResult } from '../types'
 export const VALIDATION_MODEL = 'claude-sonnet-4-6'
 export const VALIDATION_MAX_TOKENS = 1000
 
+// Target-language code -> English name. Shared with cleanse.ts.
+export function langName(code: string): string {
+  const map: Record<string, string> = { es: 'Spanish', fr: 'French', de: 'German', it: 'Italian' }
+  return map[code] ?? code
+}
+
 export interface ValidateArgs {
   prompt: Prompt
   value: string
@@ -55,11 +61,6 @@ Rules:
 - If it answers but has a grammar/spelling issue -> "correct". ${reveal ? 'Include "answer" with the corrected form.' : 'Do NOT include "answer" — point at the error only so the student derives the fix.'}
 - If it's appropriate, fits, and is grammatically fine -> "pass".
 Output only the JSON.`
-}
-
-function langName(code: string): string {
-  const map: Record<string, string> = { es: 'Spanish', fr: 'French', de: 'German', it: 'Italian' }
-  return map[code] ?? code
 }
 
 export function parseResult(raw: string): ValidationResult | null {
