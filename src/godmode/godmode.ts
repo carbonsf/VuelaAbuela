@@ -8,7 +8,10 @@
 import type { Transport } from '../transport/Transport'
 import type { RoomState } from '../types'
 
-export const GOD_MODE = true
+// Default: god-mode (single-browser harness, in-memory transport). Set
+// VITE_GOD_MODE=false to run the REAL PartyKit multi-device flow (teacher
+// creates a room, students join from their own devices).
+export const GOD_MODE = import.meta.env.VITE_GOD_MODE !== 'false'
 
 export const SAMPLE_NAMES = [
   'Marisol',

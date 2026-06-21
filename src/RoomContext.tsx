@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { GodModeTransport } from './transport/GodModeTransport'
+import { PartyTransport } from './transport/PartyTransport'
 import type { Transport } from './transport/Transport'
+import { GOD_MODE } from './godmode/godmode'
 import { SAMPLE_LESSON } from './lesson/sampleLesson'
 import type { RoomState } from './types'
 
@@ -12,17 +14,16 @@ interface RoomContextValue {
 
 const RoomContext = createContext<RoomContextValue | null>(null)
 
-// Single transport instance for the prototype. Swap GodModeTransport for a
-// SupabaseTransport here and nothing else changes (§3).
+// One transport instance behind the seam (§3). God-mode uses the in-memory
+// pub/sub and auto-creates the shared room; real mode uses PartyTransport and
+// defers create/join to the session-entry flow (teacher creates, student joins).
 export function RoomProvider({ children }: { children: ReactNode }) {
-  const transport = useMemo(() => new GodModeTransport(), [])
+  const transport = useMemo<Transport>(() => (GOD_MODE ? new GodModeTransport() : new PartyTransport()), [])
   const [state, setState] = useState<RoomState | null>(null)
 
   useEffect(() => {
-    let unsub = () => {}
-    transport.createRoom(SAMPLE_LESSON).then(() => {
-      unsub = transport.subscribe(setState)
-    })
+    const unsub = transport.subscribe(setState)
+    if (GOD_MODE) transport.createRoom(SAMPLE_LESSON)
     return () => unsub()
   }, [transport])
 

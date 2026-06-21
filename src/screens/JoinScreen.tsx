@@ -22,18 +22,29 @@ export function JoinScreen({ onJoined }: { onJoined: (studentId: string) => void
 
   async function submit() {
     setError('')
-    if (code.trim().toUpperCase() !== roomCode) {
-      setError('Ese código no coincide con ninguna sala.')
-      return
-    }
     if (name.trim().length < 1) {
       setError('Escribe tu nombre.')
       return
     }
+    if (code.trim().length < 1) {
+      setError('Escribe el código de sala.')
+      return
+    }
+    // God-mode knows the single room's code, so validate locally for nicer UX.
+    // Real mode has no code until join, so we let the transport confirm it.
+    if (roomCode && code.trim().toUpperCase() !== roomCode) {
+      setError('Ese código no coincide con ninguna sala.')
+      return
+    }
     setBusy(true)
-    const id = await transport.joinRoom(roomCode, name.trim())
-    setBusy(false)
-    onJoined(id)
+    try {
+      const id = await transport.joinRoom(code.trim().toUpperCase(), name.trim())
+      onJoined(id)
+    } catch {
+      setError('No encontramos esa sala. Revisa el código con tu profe.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const inputStyle = {
@@ -78,9 +89,11 @@ export function JoinScreen({ onJoined }: { onJoined: (studentId: string) => void
           <Button onClick={submit} disabled={busy} style={{ width: '100%', fontSize: 16, padding: '14px 22px' }}>
             {busy ? 'Uniéndose…' : 'Despegar — Unirse'}
           </Button>
-          <p style={{ margin: 0, textAlign: 'center', fontSize: 12, color: T.muted }}>
-            Sala <span style={{ fontWeight: 700, color: T.green700 }}>{roomCode}</span> · auto-registro (SSO después)
-          </p>
+          {roomCode && (
+            <p style={{ margin: 0, textAlign: 'center', fontSize: 12, color: T.muted }}>
+              Sala <span style={{ fontWeight: 700, color: T.green700 }}>{roomCode}</span> · auto-registro (SSO después)
+            </p>
+          )}
         </div>
       </Surface>
     </Screen>

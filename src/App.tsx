@@ -6,7 +6,9 @@ import { CanvasShell, FullscreenButton, Pill, Wordmark, T } from './components/d
 import { JoinScreen } from './screens/JoinScreen'
 import { StudentApp } from './screens/StudentApp'
 import { LandingScreen } from './screens/LandingScreen'
+import { SessionEntry } from './screens/SessionEntry'
 import { TeacherDashboard } from './teacher/TeacherDashboard'
+import { SAMPLE_LESSON } from './lesson/sampleLesson'
 
 // A "device" is one screen the operator can switch to: the teacher dashboard or
 // a student device (which begins at the join screen, then binds to a StudentId).
@@ -67,15 +69,7 @@ function Shell() {
   }
 
   if (!GOD_MODE) {
-    return (
-      <CanvasShell>
-        <AppHeader />
-        <main style={{ padding: '8px 24px 64px' }}>
-          <StudentDevice device={{ id: 'solo', kind: 'student' }} onJoined={() => {}} />
-        </main>
-        <FullscreenButton />
-      </CanvasShell>
-    )
+    return <RealSession />
   }
 
   return (
@@ -93,6 +87,43 @@ function Shell() {
           <TeacherDashboard />
         ) : (
           <StudentDevice device={active} onJoined={(sid) => bindStudent(active.id, sid)} />
+        )}
+      </main>
+      <FullscreenButton />
+    </CanvasShell>
+  )
+}
+
+// Real multi-device session (GOD_MODE off): this device is ONE identity — a
+// teacher who creates the room, or a student who joins it. State arrives
+// privacy-scoped from the PartyServer backend.
+function RealSession() {
+  const { transport, state } = useRoom()
+  const [role, setRole] = useState<null | 'teacher' | 'student'>(null)
+  const [studentId, setStudentId] = useState<string | null>(null)
+
+  if (!role) {
+    return (
+      <CanvasShell>
+        <SessionEntry
+          onTeacher={async () => { await transport.createRoom(SAMPLE_LESSON); setRole('teacher') }}
+          onStudent={() => setRole('student')}
+        />
+        <FullscreenButton />
+      </CanvasShell>
+    )
+  }
+
+  return (
+    <CanvasShell>
+      <AppHeader room={state?.code} />
+      <main style={{ padding: '8px 24px 64px' }}>
+        {role === 'teacher' ? (
+          <TeacherDashboard />
+        ) : studentId ? (
+          <StudentApp studentId={studentId} />
+        ) : (
+          <JoinScreen onJoined={setStudentId} />
         )}
       </main>
       <FullscreenButton />
