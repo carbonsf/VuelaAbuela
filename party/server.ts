@@ -1,10 +1,11 @@
 // ============================================================================
-// PartyKit server — the REAL transport backend (one "party" per room code, a
-// Cloudflare Durable Object holding authoritative RoomState). Mirrors the logic
-// of GodModeTransport, but here every outbound snapshot is scoped per viewer via
-// projectStateFor so a student never receives another student's answers.
+// PartyServer backend (Cloudflare Workers + Durable Objects) — the REAL
+// transport. One DO instance ("Room") per room code holds authoritative
+// RoomState; every outbound snapshot is scoped per viewer via projectStateFor
+// so a student never receives another student's answers. Deployed to your own
+// Cloudflare account with `wrangler deploy` (lands on *.workers.dev).
 //
-// Wire protocol (client <-> server), all JSON:
+// Wire protocol (JSON), client <-> server:
 //   client -> { type:'init', config }                  teacher creates the room
 //           | { type:'join', name }                    student joins
 //           | { type:'patch', partial }
@@ -15,36 +16,41 @@
 //   server -> { type:'state', state }                  scoped snapshot (push)
 //           | { type:'joined', studentId }             reply to join
 // ============================================================================
-import type * as Party from 'partykit/server'
+import { Server, routePartykitRequest } from 'partyserver'
+import type { Connection, ConnectionContext, WSMessage } from 'partyserver'
 import { projectStateFor, type Viewer } from '../src/transport/projectState'
 import type {
-  LessonConfig, RecordedAnswers, RoomState, Student, StudentId, StudentPhase,
+  LessonConfig, RecordedAnswers, RoomState, Student, StudentPhase,
 } from '../src/types'
 
 const LAUNCH_WINDOW_MS = 1500
 
-export default class RoomServer implements Party.Server {
-  constructor(readonly room: Party.Room) {}
+interface Env {
+  Room: DurableObjectNamespace<Room>
+}
 
-  // in-memory authoritative state (lives as long as the Durable Object is warm)
+export class Room extends Server<Env> {
+  // keep the DO warm (and in-memory state intact) while a class is in session
+  static options = { hibernate: false }
+
   private state: RoomState | null = null
   private seq = 0
   private viewers = new Map<string, Viewer>() // connection id -> who they are
 
-  onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
+  onConnect(conn: Connection, ctx: ConnectionContext) {
     const role = new URL(ctx.request.url).searchParams.get('role')
     if (role === 'teacher') this.viewers.set(conn.id, { role: 'teacher' })
-    // students are assigned an identity on 'join'; until then they see nothing.
+    // students get an identity on 'join'; until then they receive nothing.
     this.sendStateTo(conn)
   }
 
-  onClose(conn: Party.Connection) {
+  onClose(conn: Connection) {
     this.viewers.delete(conn.id)
   }
 
-  onMessage(raw: string, sender: Party.Connection) {
+  onMessage(conn: Connection, raw: WSMessage) {
     let msg: any
-    try { msg = JSON.parse(raw) } catch { return }
+    try { msg = JSON.parse(raw as string) } catch { return }
 
     switch (msg.type) {
       case 'init':
@@ -55,8 +61,8 @@ export default class RoomServer implements Party.Server {
         const student = this.makeStudent(String(msg.name ?? ''))
         this.state.students[student.id] = student
         this.state.inputs[student.id] = { name: { value: student.name, status: 'passed' } }
-        this.viewers.set(sender.id, { role: 'student', id: student.id })
-        sender.send(JSON.stringify({ type: 'joined', studentId: student.id }))
+        this.viewers.set(conn.id, { role: 'student', id: student.id })
+        conn.send(JSON.stringify({ type: 'joined', studentId: student.id }))
         break
       }
       case 'patch':
@@ -96,22 +102,17 @@ export default class RoomServer implements Party.Server {
       default:
         return
     }
-    this.broadcast()
+    this.broadcastState()
   }
 
   // ---- helpers ----
   private initRoom(config: LessonConfig): RoomState {
     return {
-      code: this.room.id, // the party id IS the room code
+      code: this.name, // the DO name IS the room code
       config,
       activity: 'LOBBY',
-      students: {},
-      inputs: {},
-      personas: {},
-      groups: [],
-      holds: {},
-      launched: {},
-      recorded: {},
+      students: {}, inputs: {}, personas: {}, groups: [],
+      holds: {}, launched: {}, recorded: {},
     }
   }
 
@@ -147,13 +148,20 @@ export default class RoomServer implements Party.Server {
     }
   }
 
-  private sendStateTo(conn: Party.Connection) {
+  private sendStateTo(conn: Connection) {
     if (!this.state) return
     const viewer = this.viewers.get(conn.id) ?? { role: 'student', id: '__pending__' }
     conn.send(JSON.stringify({ type: 'state', state: projectStateFor(this.state, viewer) }))
   }
 
-  private broadcast() {
-    for (const conn of this.room.getConnections()) this.sendStateTo(conn)
+  private broadcastState() {
+    for (const conn of this.getConnections()) this.sendStateTo(conn)
   }
+}
+
+// Worker entry — route /parties/room/:code to the Room DO.
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    return (await routePartykitRequest(request, env)) ?? new Response('Not found', { status: 404 })
+  },
 }

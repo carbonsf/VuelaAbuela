@@ -1,0 +1,14 @@
+{
+  // PartyServer backend for VuelaAbuela — deploy to your own Cloudflare account
+  // with `npx wrangler deploy` (lands on https://vuela-abuela.<subdomain>.workers.dev).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vuela-abuela",
+  "main": "party/server.ts",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [{ "name": "Room", "class_name": "Room" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+  "observability": { "enabled": true }
+}
