@@ -8,10 +8,19 @@
 import type { Transport } from '../transport/Transport'
 import type { RoomState } from '../types'
 
-// Default: god-mode (single-browser harness, in-memory transport). Set
-// VITE_GOD_MODE=false to run the REAL PartyKit multi-device flow (teacher
-// creates a room, students join from their own devices).
-export const GOD_MODE = import.meta.env.VITE_GOD_MODE !== 'false'
+// Default: god-mode (single-browser harness, in-memory transport). Switch to the
+// REAL PartyKit multi-device flow (teacher creates a room, students join from
+// their own devices) two ways:
+//   - build-time:  VITE_GOD_MODE=false
+//   - runtime:     add ?real to the URL (so one public god-mode build can also
+//                  serve the real app at e.g. /?real without a separate deploy).
+function detectGodMode(): boolean {
+  if (import.meta.env.VITE_GOD_MODE === 'false') return false
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('real')) return false
+  return true
+}
+
+export const GOD_MODE = detectGodMode()
 
 export const SAMPLE_NAMES = [
   'Marisol',
