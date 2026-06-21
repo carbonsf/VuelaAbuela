@@ -62,7 +62,7 @@ export function GodModeBar({
         <span style={{ width: 1, height: 16, background: 'rgba(255,255,255,.2)', margin: '0 4px' }} />
 
         <button onClick={() => addStudentDevice()} style={action}>+ dispositivo</button>
-        <button onClick={() => spawnStudents(5)} style={action}>+5 alumnos</button>
+        <button onClick={() => spawnStudents(6)} style={action}>+6 alumnos</button>
         <button onClick={() => state && autofillAndPass(transport, state)} style={action}
           title="rellena las entradas de cada alumno y las aprueba">
           rellenar &amp; aprobar
