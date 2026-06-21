@@ -159,9 +159,17 @@ export class Room extends Server<Env> {
   }
 }
 
-// Worker entry — route /parties/room/:code to the Room DO.
+// Worker entry — route /parties/room/:code to the Room DO. A plain GET to the
+// root just confirms the worker is alive (the app talks over /parties/... WS).
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    return (await routePartykitRequest(request, env)) ?? new Response('Not found', { status: 404 })
+    const routed = await routePartykitRequest(request, env)
+    if (routed) return routed
+    if (new URL(request.url).pathname === '/') {
+      return new Response('VuelaAbuela realtime backend — OK. (Connect over /parties/room/:code)', {
+        headers: { 'content-type': 'text/plain; charset=utf-8' },
+      })
+    }
+    return new Response('Not found', { status: 404 })
   },
 }
