@@ -20,7 +20,7 @@ import { Server, routePartykitRequest } from 'partyserver'
 import type { Connection, ConnectionContext, WSMessage } from 'partyserver'
 import { projectStateFor, type Viewer } from '../src/transport/projectState'
 import type {
-  LessonConfig, RecordedAnswers, RoomState, Student, StudentPhase,
+  LessonConfig, PoemEntry, RecordedAnswers, RoomState, Student, StudentPhase,
 } from '../src/types'
 
 const LAUNCH_WINDOW_MS = 1500
@@ -99,6 +99,11 @@ export class Room extends Server<Env> {
         if (s) this.state.students[msg.studentId] = { ...s, phase: 'submitted' }
         break
       }
+      case 'addPoemEntry': {
+        if (!this.state) break
+        this.state.poem = [...this.state.poem, msg.entry as PoemEntry]
+        break
+      }
       default:
         return
     }
@@ -112,7 +117,7 @@ export class Room extends Server<Env> {
       config,
       activity: 'LOBBY',
       students: {}, inputs: {}, personas: {}, groups: [],
-      holds: {}, launched: {}, recorded: {},
+      holds: {}, launched: {}, recorded: {}, poem: [],
     }
   }
 

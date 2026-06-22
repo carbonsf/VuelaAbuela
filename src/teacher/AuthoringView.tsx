@@ -1,14 +1,55 @@
+import type { CSSProperties } from 'react'
 import { useRoom } from '../RoomContext'
 import { Surface, Pill, StubBadge, Eyebrow, T } from '../components/despegue'
+import type { PoemLevel } from '../types'
+
+const POEM_LEVELS: { id: PoemLevel; label: string; hint: string }[] = [
+  { id: 'principiante', label: 'Principiante', hint: 'A1–A2 · vocabulario simple, presente' },
+  { id: 'intermedio', label: 'Intermedio', hint: 'B1 · pasados, frases con metáfora' },
+  { id: 'avanzado', label: 'Avanzado', hint: 'B2–C1 · lenguaje rico y figurado' },
+]
 
 // Teacher view (A) — Authoring (§9A). Hardcoded sample rendered read-only with a
-// visible "design later" STUB where the editing UI will live.
+// visible "design later" STUB where the editing UI will live. The waiting-poem
+// level IS live and editable (it drives the §10 minigame).
 export function AuthoringView() {
-  const { state } = useRoom()
+  const { transport, state } = useRoom()
   const config = state!.config
+  const poemLevel: PoemLevel = config.poemLevel ?? 'principiante'
+
+  function setPoemLevel(level: PoemLevel) {
+    transport.patch({ config: { ...config, poemLevel: level } })
+  }
+
+  const levelChip = (selected: boolean): CSSProperties => ({
+    flex: '1 1 150px', textAlign: 'left', cursor: 'pointer', borderRadius: 12, padding: '11px 14px',
+    fontFamily: 'var(--font-sans)', transition: 'all .2s var(--ease-glide)',
+    background: selected ? T.canvas : '#fff',
+    border: `1.5px solid ${selected ? T.canvas : T.border}`,
+    color: selected ? T.bg : T.ink,
+  })
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
+      <Surface>
+        <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Eyebrow>Poema de espera — nivel de la clase</Eyebrow>
+          <Pill tone="ok">en vivo</Pill>
+        </div>
+        <p style={{ margin: '0 0 12px', fontSize: 13, color: T.muted }}>
+          Controla la dificultad del poema comunal que los alumnos arman mientras esperan el reparto.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          {POEM_LEVELS.map((lv) => (
+            <button key={lv.id} onClick={() => setPoemLevel(lv.id)} style={levelChip(poemLevel === lv.id)}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14.5 }}>{lv.label}</div>
+              <div style={{ marginTop: 3, fontSize: 11.5, opacity: 0.85,
+                color: poemLevel === lv.id ? T.onDarkSoft : T.muted }}>{lv.hint}</div>
+            </button>
+          ))}
+        </div>
+      </Surface>
+
       <div style={{ borderRadius: 'var(--radius-card)', border: '1px dashed rgba(224,168,0,.5)',
         background: 'rgba(224,168,0,.08)', padding: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

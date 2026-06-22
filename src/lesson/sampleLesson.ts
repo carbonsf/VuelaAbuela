@@ -8,6 +8,7 @@ export const SAMPLE_LESSON: LessonConfig = {
   perspective: 'third-person',
   correctionMode: 'point-then-reveal',
   groupFallback: 'absorb',
+  poemLevel: 'principiante',
   prompts: [
     { id: 'name', labelL1: 'Your name', source: 'join', complexity: 'word', example: '(from join)' },
     { id: 'occupation', labelL1: 'An occupation', source: 'phase1', complexity: 'word', example: 'profesora' },

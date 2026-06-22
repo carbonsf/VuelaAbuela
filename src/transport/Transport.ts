@@ -5,6 +5,7 @@
 // ============================================================================
 import type {
   LessonConfig,
+  PoemEntry,
   RecordedAnswers,
   RoomCode,
   RoomState,
@@ -30,4 +31,8 @@ export interface Transport {
   holdToken(studentId: StudentId): Promise<void> // press-and-hold begin
   releaseToken(studentId: StudentId): Promise<void> // both holding within window => launch
   submitAnswers(studentId: StudentId, answers: RecordedAnswers): Promise<void>
+
+  // waiting-game: append one contribution to the communal poem (append-only, so
+  // concurrent contributions never clobber each other)
+  addPoemEntry(entry: PoemEntry): Promise<void>
 }

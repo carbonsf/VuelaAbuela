@@ -25,6 +25,9 @@ export interface Question {
   partnerTag?: string // STUB: for trio per-partner-tagged questions
 }
 
+// Difficulty of the communal waiting-game poem (set in authoring).
+export type PoemLevel = 'principiante' | 'intermedio' | 'avanzado'
+
 export interface LessonConfig {
   language: string // 'es'
   grammarTarget: string // 'preterite-imperfect'
@@ -33,6 +36,16 @@ export interface LessonConfig {
   prompts: Prompt[] // includes the name prompt (source:'join')
   questions: Question[] // global set; partner-facing
   groupFallback: 'absorb' | 'force-trio' // odd count; default 'absorb'
+  poemLevel?: PoemLevel // waiting-game poem difficulty; default 'principiante'
+}
+
+// One contribution to the communal waiting-game poem: a student's word and the
+// Spanish line the model wove around it. Communal (not privacy-scoped).
+export interface PoemEntry {
+  word: string
+  byStudentId: StudentId
+  byName: string
+  line: string
 }
 
 // slotId -> value
@@ -127,4 +140,5 @@ export interface RoomState {
   holds: Record<StudentId, number> // studentId -> timestamp of current press-and-hold (0 = released)
   launched: Record<string, boolean> // groupId -> has launched
   recorded: Record<StudentId, RecordedAnswers> // byStudent -> recorded answers
+  poem: PoemEntry[] // communal waiting-game poem, in contribution order
 }

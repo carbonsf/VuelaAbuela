@@ -2,6 +2,7 @@ import { useRoom } from '../RoomContext'
 import { Screen, Wordmark, T } from '../components/despegue'
 import { InputScreen } from './InputScreen'
 import { HoldingScreen } from './HoldingScreen'
+import { PoemGame } from '../minigame/PoemGame'
 import { ActivationScreen } from './ActivationScreen'
 import { ConversationScreen } from './ConversationScreen'
 import { RepartoScreen } from './RepartoScreen'
@@ -39,10 +40,11 @@ export function StudentApp({ studentId }: { studentId: StudentId }) {
       )
 
     case 'INPUT':
-      return student.phase === 'passed' ? <HoldingScreen context="ready" /> : <InputScreen studentId={studentId} />
+      // early finishers play the communal poem waiting-game while others fill in
+      return student.phase === 'passed' ? <PoemGame studentId={studentId} /> : <InputScreen studentId={studentId} />
 
     case 'READY_GATE':
-      return <HoldingScreen context="ready" />
+      return <PoemGame studentId={studentId} />
 
     case 'HANDOFF':
       // students watch the redistribution set-piece; the teacher advances

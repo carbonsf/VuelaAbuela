@@ -5,6 +5,7 @@
 // ============================================================================
 import type {
   LessonConfig,
+  PoemEntry,
   RecordedAnswers,
   RoomCode,
   RoomState,
@@ -56,6 +57,7 @@ export class GodModeTransport implements Transport {
       holds: {},
       launched: {},
       recorded: {},
+      poem: [],
     }
     this.emit()
     return code
@@ -119,6 +121,12 @@ export class GodModeTransport implements Transport {
     this.state.recorded = { ...this.state.recorded, [studentId]: answers }
     const s = this.state.students[studentId]
     if (s) this.state.students[studentId] = { ...s, phase: 'submitted' }
+    this.emit()
+  }
+
+  async addPoemEntry(entry: PoemEntry): Promise<void> {
+    if (!this.state) return
+    this.state.poem = [...this.state.poem, entry]
     this.emit()
   }
 

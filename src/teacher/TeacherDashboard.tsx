@@ -67,6 +67,8 @@ export function TeacherDashboard() {
           style={{ padding: '9px 18px', minHeight: 0 }}>Autoría</Button>
       </div>
 
+      {activity === 'LOBBY' && tab === 'monitor' && <BigRoomCode code={state.code} />}
+
       <div style={{ marginTop: 18 }}>
         {tab === 'authoring' ? (
           <AuthoringView />
@@ -170,6 +172,41 @@ function ActivityControls() {
           cta={<Pill tone="ok">actividad completa</Pill>}
         />
       )}
+    </div>
+  )
+}
+
+// Big, central room code for the lobby so the teacher can read it out and the
+// class can join. Each glyph in its own tile; tap-to-copy the whole code.
+function BigRoomCode({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false)
+  function copy() {
+    navigator.clipboard?.writeText(code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1600)
+    }).catch(() => {})
+  }
+  return (
+    <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', alignItems: 'center',
+      textAlign: 'center', animation: 'va-rise .5s var(--ease-spring) both' }}>
+      <Eyebrow onDark>Código de sala — compártelo con tu clase</Eyebrow>
+      <button onClick={copy} title="Copiar código"
+        style={{ marginTop: 12, display: 'flex', gap: 10, background: 'none', border: 'none',
+          cursor: 'pointer', padding: 0 }}>
+        {code.split('').map((ch, i) => (
+          <span key={i} style={{ fontFamily: 'var(--font-display)', fontWeight: 700,
+            fontSize: 'clamp(46px, 12vw, 88px)', lineHeight: 1, color: T.canvas,
+            background: 'var(--color-yellow-500)', borderRadius: 16, padding: '10px 18px',
+            minWidth: '0.7em', boxShadow: '0 14px 34px -16px rgba(255,221,0,.7)',
+            animation: `va-cardPop .5s var(--ease-spring) both`, animationDelay: `${0.06 * i}s` }}>
+            {ch}
+          </span>
+        ))}
+      </button>
+      <p style={{ marginTop: 14, fontSize: 13.5, color: T.onDarkMuted }}>
+        En sus dispositivos: <span style={{ color: T.bg, fontWeight: 600 }}>vuela-abuela.vercel.app/?real</span>
+        {' '}→ <span style={{ color: T.bg, fontWeight: 600 }}>Soy alumno</span> · {copied ? '¡copiado! ✓' : 'toca el código para copiar'}
+      </p>
     </div>
   )
 }
