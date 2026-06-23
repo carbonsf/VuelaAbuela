@@ -39,13 +39,23 @@ export interface LessonConfig {
   poemLevel?: PoemLevel // waiting-game poem difficulty; default 'principiante'
 }
 
-// One contribution to the communal waiting-game poem: a student's word and the
-// Spanish line the model wove around it. Communal (not privacy-scoped).
-export interface PoemEntry {
+// One word a student contributes to the communal poem. `word` may include an
+// article (e.g. "el mar") — the poem need not keep the article, but it teaches
+// students to learn nouns with gender.
+export interface PoemWord {
   word: string
   byStudentId: StudentId
   byName: string
-  line: string
+}
+
+// The communal waiting-game poem. The whole poem is REGENERATED from scratch on
+// every new word (so it stays cohesive), incorporating all submitted words.
+export interface PoemState {
+  pool: StudentId[]      // pool join order — drives the "pyramid" of word slots
+  words: PoemWord[]      // every submitted word, append-only
+  text: string          // current full poem (regenerated each submission)
+  startCache: string[]  // FIFO ≤15 recent opening words, to avoid converging
+  gen: number           // regeneration counter — drives the fly transition
 }
 
 // slotId -> value
@@ -140,5 +150,5 @@ export interface RoomState {
   holds: Record<StudentId, number> // studentId -> timestamp of current press-and-hold (0 = released)
   launched: Record<string, boolean> // groupId -> has launched
   recorded: Record<StudentId, RecordedAnswers> // byStudent -> recorded answers
-  poem: PoemEntry[] // communal waiting-game poem, in contribution order
+  poem: PoemState // communal waiting-game poem (regenerated each submission)
 }

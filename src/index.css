@@ -134,6 +134,13 @@ button:focus-visible { outline: 3px solid var(--color-yellow-500); outline-offse
 @keyframes va-fadeUp { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
 @keyframes va-breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
 
+/* Poem waiting-game. va-poemIn = the whole poem flies in on each regeneration;
+   va-wordFloat = each word lives and breathes; va-sweep = a yellow flight sweep
+   over the poem while it is being re-woven. */
+@keyframes va-poemIn   { 0% { opacity: 0; transform: translateY(26px) scale(.97); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes va-wordFloat{ 0%,100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-3px) rotate(-.4deg); } }
+@keyframes va-sweep    { 0% { background-position: 140% 0; } 100% { background-position: -40% 0; } }
+
 /* ----------------------------------------------------------------------------
    Accessibility — collapse all motion to ~instant for users who opt out.
    ---------------------------------------------------------------------------- */

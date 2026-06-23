@@ -5,7 +5,7 @@
 // ============================================================================
 import type {
   LessonConfig,
-  PoemEntry,
+  PoemWord,
   RecordedAnswers,
   RoomCode,
   RoomState,
@@ -32,7 +32,8 @@ export interface Transport {
   releaseToken(studentId: StudentId): Promise<void> // both holding within window => launch
   submitAnswers(studentId: StudentId, answers: RecordedAnswers): Promise<void>
 
-  // waiting-game: append one contribution to the communal poem (append-only, so
-  // concurrent contributions never clobber each other)
-  addPoemEntry(entry: PoemEntry): Promise<void>
+  // waiting-game (communal poem):
+  joinPoemPool(studentId: StudentId): Promise<void> // record pool join order (pyramid)
+  addPoemWord(word: PoemWord): Promise<void> // append-only word contribution
+  commitPoem(text: string, startWord: string): Promise<void> // set regenerated text; cache opener
 }

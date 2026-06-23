@@ -20,7 +20,7 @@ import { Server, routePartykitRequest } from 'partyserver'
 import type { Connection, ConnectionContext, WSMessage } from 'partyserver'
 import { projectStateFor, type Viewer } from '../src/transport/projectState'
 import type {
-  LessonConfig, PoemEntry, RecordedAnswers, RoomState, Student, StudentPhase,
+  LessonConfig, PoemWord, RecordedAnswers, RoomState, Student, StudentPhase,
 } from '../src/types'
 
 const LAUNCH_WINDOW_MS = 1500
@@ -99,9 +99,22 @@ export class Room extends Server<Env> {
         if (s) this.state.students[msg.studentId] = { ...s, phase: 'submitted' }
         break
       }
-      case 'addPoemEntry': {
+      case 'joinPoemPool': {
         if (!this.state) break
-        this.state.poem = [...this.state.poem, msg.entry as PoemEntry]
+        if (!this.state.poem.pool.includes(msg.studentId)) {
+          this.state.poem = { ...this.state.poem, pool: [...this.state.poem.pool, msg.studentId] }
+        }
+        break
+      }
+      case 'addPoemWord': {
+        if (!this.state) break
+        this.state.poem = { ...this.state.poem, words: [...this.state.poem.words, msg.word as PoemWord] }
+        break
+      }
+      case 'commitPoem': {
+        if (!this.state) break
+        const startCache = [...this.state.poem.startCache, String(msg.startWord)].slice(-15)
+        this.state.poem = { ...this.state.poem, text: String(msg.text), startCache, gen: this.state.poem.gen + 1 }
         break
       }
       default:
@@ -117,7 +130,8 @@ export class Room extends Server<Env> {
       config,
       activity: 'LOBBY',
       students: {}, inputs: {}, personas: {}, groups: [],
-      holds: {}, launched: {}, recorded: {}, poem: [],
+      holds: {}, launched: {}, recorded: {},
+      poem: { pool: [], words: [], text: '', startCache: [], gen: 0 },
     }
   }
 

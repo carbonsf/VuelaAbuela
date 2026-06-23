@@ -4,9 +4,9 @@ import { Surface, Pill, StubBadge, Eyebrow, T } from '../components/despegue'
 import type { PoemLevel } from '../types'
 
 const POEM_LEVELS: { id: PoemLevel; label: string; hint: string }[] = [
-  { id: 'principiante', label: 'Principiante', hint: 'A1–A2 · vocabulario simple, presente' },
-  { id: 'intermedio', label: 'Intermedio', hint: 'B1 · pasados, frases con metáfora' },
-  { id: 'avanzado', label: 'Avanzado', hint: 'B2–C1 · lenguaje rico y figurado' },
+  { id: 'principiante', label: 'Español 1–2', hint: 'A1–A2 · vocabulario simple, presente' },
+  { id: 'intermedio', label: 'Español 2–3', hint: 'A2–B1 · presente, pretérito, imperfecto' },
+  { id: 'avanzado', label: 'Español 3–4', hint: 'B1 · imágenes más ricas, accesible' },
 ]
 
 // Teacher view (A) — Authoring (§9A). Hardcoded sample rendered read-only with a

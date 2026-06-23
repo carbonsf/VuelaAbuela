@@ -8,7 +8,7 @@
 import { PartySocket } from 'partysocket'
 import type { Transport } from './Transport'
 import type {
-  LessonConfig, PoemEntry, RecordedAnswers, RoomCode, RoomState, StudentId, StudentPhase, Unsubscribe,
+  LessonConfig, PoemWord, RecordedAnswers, RoomCode, RoomState, StudentId, StudentPhase, Unsubscribe,
 } from '../types'
 
 const HOST = (import.meta.env.VITE_PARTYKIT_HOST as string | undefined) ?? ''
@@ -104,7 +104,15 @@ export class PartyTransport implements Transport {
     this.send({ type: 'submitAnswers', studentId, answers })
   }
 
-  async addPoemEntry(entry: PoemEntry): Promise<void> {
-    this.send({ type: 'addPoemEntry', entry })
+  async joinPoemPool(studentId: StudentId): Promise<void> {
+    this.send({ type: 'joinPoemPool', studentId })
+  }
+
+  async addPoemWord(word: PoemWord): Promise<void> {
+    this.send({ type: 'addPoemWord', word })
+  }
+
+  async commitPoem(text: string, startWord: string): Promise<void> {
+    this.send({ type: 'commitPoem', text, startWord })
   }
 }

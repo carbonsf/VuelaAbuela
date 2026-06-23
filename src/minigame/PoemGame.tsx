@@ -1,58 +1,84 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useRoom } from '../RoomContext'
 import { Screen, Surface, Button, Pill, ProgressArc, T } from '../components/despegue'
 import { validateInput } from '../validation/validator'
-import { generatePoemLine } from './poem'
+import { generatePoem, defineWordEN, deaccent, wordStem } from './poem'
 import type { Prompt, PoemLevel, StudentId } from '../types'
 
-// The communal waiting-game poem (§10). Each student adds ONE word; the model
-// weaves it into the next line. Everyone sees the poem grow and who added what.
-// Built to fill dead air with motion — the first student may wait a while.
+// Communal waiting-game poem (§10). Each new word REGENERATES the whole poem so
+// it reads like a real Spanish poem; words are clickable for a definition; the
+// poem flies in on every regeneration; words live and breathe while you wait.
+// "Pyramid" of turns: when a new student joins the pool, everyone already in it
+// earns another word — so allowance(student) = poolSize − theirJoinIndex.
+
+const SPANISH_ARTICLES = ['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas']
 
 const POEM_PROMPT: Prompt = {
   id: 'poem-word',
-  labelL1: 'A single evocative Spanish word for the class poem (any word: a noun, verb, feeling…)',
+  labelL1: 'A single Spanish word for a class poem — optionally with its article (e.g. "el mar"); any kind of word is fine',
   source: 'phase1',
   complexity: 'word',
-  example: 'luna',
+  example: 'el mar',
 }
 
 const LEVEL_LABEL: Record<PoemLevel, string> = {
-  principiante: 'principiante', intermedio: 'intermedio', avanzado: 'avanzado',
+  principiante: 'Español 1–2', intermedio: 'Español 2–3', avanzado: 'Español 3–4',
 }
 
 type Feedback =
-  | { kind: 'idle' }
-  | { kind: 'working' }
-  | { kind: 'block'; msg: string }
-  | { kind: 'reenter'; msg: string }
-  | { kind: 'point'; msg: string }
-  | { kind: 'reveal'; msg: string; answer?: string }
+  | { kind: 'idle' } | { kind: 'working' } | { kind: 'weaving' }
+  | { kind: 'block'; msg: string } | { kind: 'reenter'; msg: string }
+  | { kind: 'point'; msg: string } | { kind: 'reveal'; msg: string; answer?: string }
+
+function entryFormatOk(raw: string): boolean {
+  const toks = raw.trim().split(/\s+/)
+  if (toks.length === 1) return toks[0].length > 0
+  if (toks.length === 2) return SPANISH_ARTICLES.includes(toks[0].toLowerCase())
+  return false
+}
 
 export function PoemGame({ studentId }: { studentId: StudentId }) {
   const { transport, state } = useRoom()
   const config = state!.config
-  const level: PoemLevel = config.poemLevel ?? 'principiante'
+  const level: PoemLevel = config.poemLevel ?? 'intermedio'
   const poem = state!.poem
   const me = state!.students[studentId]
 
-  const mine = useMemo(() => poem.find((e) => e.byStudentId === studentId), [poem, studentId])
+  // join the pool once (records order -> drives the pyramid)
+  useEffect(() => { transport.joinPoemPool(studentId) }, [transport, studentId])
+
+  const poolIdx = poem.pool.indexOf(studentId)
+  const allowance = poolIdx < 0 ? 0 : poem.pool.length - poolIdx
+  const myUsed = poem.words.filter((w) => w.byStudentId === studentId).length
+  const remaining = Math.max(0, allowance - myUsed)
+
   const [draft, setDraft] = useState('')
   const [attempt, setAttempt] = useState(0)
   const [fb, setFb] = useState<Feedback>({ kind: 'idle' })
+  const [def, setDef] = useState<{ word: string; en: string | null } | null>(null)
+  const defCache = useRef<Map<string, string>>(new Map())
 
-  // readiness signal (real): how many pilots are waiting together
+  // attribution: word stem (accent-folded) -> contributor name, so an inflected
+  // form in the poem still gets tagged with who contributed it
+  const attribution = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const w of poem.words) m.set(wordStem(w.word), w.byName)
+    return m
+  }, [poem.words])
+
   const active = Object.values(state!.students).filter((s) => !s.markedOut)
   const readyCount = active.filter((s) =>
     ['passed', 'waiting', 'activating', 'conversing', 'submitted'].includes(s.phase)).length
 
+  const busy = fb.kind === 'working' || fb.kind === 'weaving'
+
   async function add() {
-    const word = draft.trim()
-    if (!word) return
-    if (/\s/.test(word)) { setFb({ kind: 'reenter', msg: 'Solo una palabra, por favor.' }); return }
+    const entry = draft.trim()
+    if (!entry) return
+    if (!entryFormatOk(entry)) { setFb({ kind: 'reenter', msg: 'Una palabra (o artículo + sustantivo, p. ej. «el mar»).' }); return }
     setFb({ kind: 'working' })
-    const res = await validateInput({ prompt: POEM_PROMPT, value: word, config, grammarAttempt: attempt })
+    const res = await validateInput({ prompt: POEM_PROMPT, value: entry, config, grammarAttempt: attempt })
     if (res.action === 'block') { setFb({ kind: 'block', msg: res.reason }); return }
     if (res.action === 'reenter') { setFb({ kind: 'reenter', msg: res.reason }); return }
     if (res.action === 'correct') {
@@ -60,207 +86,251 @@ export function PoemGame({ studentId }: { studentId: StudentId }) {
       else { setAttempt((a) => a + 1); setFb({ kind: 'reveal', msg: res.hint, answer: res.answer }) }
       return
     }
-    // pass -> weave a line and append
-    const line = await generatePoemLine(poem, word, level, config.language)
-    await transport.addPoemEntry({ word, byStudentId: studentId, byName: me?.name ?? '—', line })
-    setDraft(''); setAttempt(0); setFb({ kind: 'idle' })
+    // pass -> record the word, then regenerate the WHOLE poem from all words
+    await transport.addPoemWord({ word: entry, byStudentId: studentId, byName: me?.name ?? '—' })
+    setDraft(''); setAttempt(0); setFb({ kind: 'weaving' })
+    const allEntries = [...poem.words.map((w) => w.word), entry]
+    const { text, start } = await generatePoem(allEntries, level, config.language, poem.startCache)
+    await transport.commitPoem(text, start)
+    setFb({ kind: 'idle' })
+  }
+
+  async function openDef(word: string) {
+    const clean = word.replace(/[^\p{L}'-]/gu, '')
+    if (!clean) return
+    setDef({ word: clean, en: defCache.current.get(clean.toLowerCase()) ?? null })
+    if (!defCache.current.has(clean.toLowerCase())) {
+      const en = await defineWordEN(clean, config.language)
+      defCache.current.set(clean.toLowerCase(), en)
+      setDef((d) => (d && d.word === clean ? { ...d, en } : d))
+    }
   }
 
   return (
-    <Screen key="poemgame" maxWidth={620} style={{ paddingTop: 18 }}>
-      <FloatField count={poem.length} />
+    <Screen key="poemgame" maxWidth={660} style={{ paddingTop: 18 }}>
+      <FloatField count={poem.words.length} weaving={fb.kind === 'weaving'} />
 
       <div style={{ position: 'relative', zIndex: 1 }}>
-        {/* header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 26, color: T.bg, lineHeight: 1 }}>
               El poema de la clase
             </div>
             <p style={{ margin: '7px 0 0', fontSize: 13.5, color: T.onDarkMuted }}>
-              Mientras despegan los demás, escríbanlo juntos — una palabra cada quien.
+              Una palabra de cada quien — el poema se reescribe entero con cada una. Toca una palabra para su significado.
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Pill tone="onDark">nivel {LEVEL_LABEL[level]}</Pill>
-            <Pill tone="brand">{poem.length} {poem.length === 1 ? 'verso' : 'versos'}</Pill>
+            <Pill tone="onDark">{LEVEL_LABEL[level]}</Pill>
+            <Pill tone="brand">{poem.words.length} {poem.words.length === 1 ? 'palabra' : 'palabras'}</Pill>
           </div>
         </div>
 
-        {/* the growing poem */}
-        <Surface style={{ marginTop: 18, padding: '24px 26px', minHeight: 150 }}>
-          {poem.length === 0 ? (
-            <EmptyPoem mineYet={!!mine} />
+        {/* the poem */}
+        <Surface style={{ marginTop: 18, padding: '28px 30px', minHeight: 170, position: 'relative', overflow: 'hidden' }}>
+          {fb.kind === 'weaving' && <WeavingVeil />}
+          {poem.text ? (
+            <PoemView key={poem.gen} text={poem.text} gen={poem.gen}
+              attribution={attribution} onWord={openDef} />
           ) : (
-            <div style={{ display: 'grid', gap: 12 }}>
-              {poem.map((e, i) => (
-                <PoemLine key={i} index={i} line={e.line} word={e.word} name={e.byName}
-                  mine={e.byStudentId === studentId} newest={i === poem.length - 1} />
-              ))}
-            </div>
+            <EmptyPoem mineYet={myUsed > 0} weaving={fb.kind === 'weaving'} />
           )}
         </Surface>
 
-        {/* word pool — who added what */}
-        {poem.length > 0 && (
-          <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-            {poem.map((e, i) => (
-              <span key={i} title={`${e.word} · ${e.byName}`}
-                style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, padding: '5px 11px',
-                  borderRadius: 999, fontSize: 13, background: 'rgba(250,251,248,.08)',
-                  border: `1px solid ${e.byStudentId === studentId ? 'rgba(255,221,0,.5)' : 'rgba(255,255,255,.14)'}`,
-                  color: T.onDarkSoft, animation: 'va-cardPop .45s var(--ease-spring) both',
-                  animationDelay: `${0.04 * i}s` }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: T.bg }}>{e.word}</span>
-                <span style={{ fontSize: 11, color: T.onDarkMuted }}>· {e.byName}</span>
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* your turn / contributed */}
-        <div style={{ marginTop: 20 }}>
-          {mine ? (
+        {/* your turn */}
+        <div style={{ marginTop: 18 }}>
+          {remaining > 0 ? (
+            <YourTurn draft={draft} busy={busy} remaining={remaining} fb={fb}
+              setDraft={(v) => { setDraft(v); if (fb.kind !== 'idle' && fb.kind !== 'working' && fb.kind !== 'weaving') setFb({ kind: 'idle' }) }}
+              onAdd={add} />
+          ) : (
             <div style={{ textAlign: 'center', animation: 'va-rise .5s var(--ease-spring) both' }}>
-              <p style={{ margin: 0, fontSize: 14, color: T.onDarkSoft }}>
-                Tu palabra <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: T.yellow }}>
-                  {mine.word}</span> ya vuela en el poema. <Pill tone="ok">añadida ✓</Pill>
+              <p style={{ margin: 0, fontSize: 13.5, color: T.onDarkSoft }}>
+                {myUsed > 0
+                  ? <>Tus palabras ya vuelan en el poema. <Pill tone="ok">+{myUsed}</Pill></>
+                  : 'Espera un momento…'}
               </p>
-              <p style={{ margin: '8px 0 0', fontSize: 12.5, color: T.onDarkMuted }}>
-                Mira cómo crece mientras llegan los demás…
+              <p style={{ margin: '7px 0 0', fontSize: 12.5, color: T.onDarkMuted }}>
+                Cuando entre alguien nuevo, ganarás otra palabra. ✨
               </p>
             </div>
-          ) : (
-            <YourTurn
-              draft={draft} setDraft={(v) => { setDraft(v); if (fb.kind !== 'idle' && fb.kind !== 'working') setFb({ kind: 'idle' }) }}
-              onAdd={add} fb={fb} />
           )}
         </div>
 
-        {/* real readiness signal */}
+        {/* readiness */}
         <div style={{ marginTop: 22, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14 }}>
-          <ProgressArc value={readyCount} total={active.length} size={72} label="listos" />
-          <p style={{ margin: 0, fontSize: 13, color: T.onDarkMuted, maxWidth: 240 }}>
-            Esperando a que tu profe lance el reparto. El poema sigue mientras tanto.
+          <ProgressArc value={readyCount} total={active.length} size={66} label="listos" />
+          <p style={{ margin: 0, fontSize: 13, color: T.onDarkMuted, maxWidth: 250 }}>
+            Esperando a que tu profe lance el reparto — el poema sigue creciendo mientras tanto.
           </p>
         </div>
       </div>
+
+      {def && <DefinitionModal word={def.word} en={def.en} onClose={() => setDef(null)} />}
     </Screen>
   )
 }
 
-function YourTurn({ draft, setDraft, onAdd, fb }: {
-  draft: string; setDraft: (v: string) => void; onAdd: () => void; fb: Feedback
+// ---- the rendered poem: cohesive text, embedded attributions, clickable -----
+function PoemView({ text, gen, attribution, onWord }: {
+  text: string; gen: number; attribution: Map<string, string>; onWord: (w: string) => void
 }) {
-  const busy = fb.kind === 'working'
-  const tone =
-    fb.kind === 'block' ? T.errorText : fb.kind === 'reenter' ? T.amberText
-      : fb.kind === 'point' || fb.kind === 'reveal' ? T.amberText : T.onDarkMuted
+  const lines = text.split('\n').filter((l) => l.trim().length > 0)
+  let wordIndex = 0
+  return (
+    <div style={{ animation: 'va-poemIn .7s var(--ease-glide) both' }}>
+      {lines.map((line, li) => {
+        const tokens = line.match(/(\p{L}[\p{L}'-]*)|([^\p{L}]+)/gu) ?? [line]
+        return (
+          <div key={`${gen}-${li}`} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end',
+            justifyContent: 'center', lineHeight: 1.5, marginBottom: 6 }}>
+            {tokens.map((tok, ti) => {
+              if (!/\p{L}/u.test(tok)) {
+                return <span key={ti} style={{ whiteSpace: 'pre', fontFamily: 'var(--font-display)',
+                  fontStyle: 'italic', fontSize: 21, color: T.ink }}>{tok}</span>
+              }
+              const folded = deaccent(tok)
+              let name: string | undefined
+              for (const [stem, n] of attribution) {
+                if (stem.length >= 3 && folded.startsWith(stem)) { name = n; break }
+              }
+              const idx = wordIndex++
+              return <WordToken key={ti} word={tok} name={name} index={idx} onClick={() => onWord(tok)} />
+            })}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
+function WordToken({ word, name, index, onClick }: {
+  word: string; name?: string; index: number; onClick: () => void
+}) {
+  const [hover, setHover] = useState(false)
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center',
+      // gentle living motion, staggered per word
+      animation: `va-wordFloat ${5 + (index % 5)}s var(--ease-glide) ${(index % 7) * -0.6}s infinite` }}>
+      <button onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px',
+          fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 21,
+          color: name ? T.green700 : T.ink,
+          borderBottom: `2px solid ${hover ? T.amberMid : name ? 'rgba(255,221,0,.55)' : 'transparent'}`,
+          transition: 'border-color .2s var(--ease-glide)' }}>
+        {word}
+      </button>
+      {name && (
+        <span style={{ marginTop: 1, fontFamily: 'var(--font-sans)', fontStyle: 'normal',
+          fontSize: 9.5, fontWeight: 600, letterSpacing: '.02em', color: T.amberText, opacity: 0.85 }}>
+          {name}
+        </span>
+      )}
+    </span>
+  )
+}
+
+function YourTurn({ draft, setDraft, onAdd, fb, busy, remaining }: {
+  draft: string; setDraft: (v: string) => void; onAdd: () => void; fb: Feedback; busy: boolean; remaining: number
+}) {
+  const tone = fb.kind === 'block' ? T.errorText
+    : fb.kind === 'reenter' || fb.kind === 'point' || fb.kind === 'reveal' ? T.amberText : T.onDarkMuted
   return (
     <div style={{ animation: 'va-rise .5s var(--ease-spring) both' }}>
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+        <input value={draft} onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !busy && onAdd()}
-          placeholder="tu palabra…"
-          maxLength={24}
-          autoFocus
-          style={{ width: 220, background: '#fff', border: `1.5px solid ${T.border}`,
+          placeholder="tu palabra…  (o «el mar»)" maxLength={28} autoFocus
+          style={{ width: 250, background: '#fff', border: `1.5px solid ${T.border}`,
             borderRadius: 'var(--radius-box)', padding: '13px 16px', fontFamily: 'var(--font-display)',
-            fontWeight: 600, fontSize: 18, color: T.ink, outline: 'none', textAlign: 'center' }}
-        />
+            fontWeight: 600, fontSize: 18, color: T.ink, outline: 'none', textAlign: 'center' }} />
         <Button onClick={onAdd} disabled={busy || !draft.trim()} style={{ fontSize: 16, padding: '13px 22px' }}>
-          {busy ? 'Tejiendo…' : 'Añadir mi palabra ✈'}
+          {fb.kind === 'weaving' ? 'Tejiendo el poema…' : fb.kind === 'working' ? 'Revisando…' : 'Añadir ✈'}
         </Button>
       </div>
-      <div aria-live="polite" style={{ minHeight: 22, marginTop: 10, textAlign: 'center',
-        fontSize: 13.5, fontWeight: 600, color: tone }}>
+      <div aria-live="polite" style={{ minHeight: 20, marginTop: 9, textAlign: 'center',
+        fontSize: 13, fontWeight: 600, color: tone }}>
         {fb.kind === 'block' && <>🚫 {fb.msg}</>}
         {fb.kind === 'reenter' && <>↻ {fb.msg}</>}
         {fb.kind === 'point' && <>✎ {fb.msg}</>}
         {fb.kind === 'reveal' && <>✎ {fb.msg}{fb.answer ? <> → <span style={{ color: T.bg }}>{fb.answer}</span></> : null}</>}
+        {(fb.kind === 'idle') && <span style={{ color: T.onDarkMuted, fontWeight: 500 }}>
+          Te queda{remaining === 1 ? '' : 'n'} {remaining} palabra{remaining === 1 ? '' : 's'} por añadir.</span>}
       </div>
     </div>
   )
 }
 
-function PoemLine({ index, line, word, name, mine, newest }: {
-  index: number; line: string; word: string; name: string; mine: boolean; newest: boolean
-}) {
-  // highlight the contributed word within the line (first case-insensitive hit)
-  const parts = splitOnWord(line, word)
+function DefinitionModal({ word, en, onClose }: { word: string; en: string | null; onClose: () => void }) {
   return (
-    <div style={{ display: 'flex', gap: 12, alignItems: 'baseline',
-      animation: `va-fadeUp .55s var(--ease-glide) both`, animationDelay: `${newest ? 0 : Math.min(index * 0.04, 0.3)}s` }}>
-      <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 12, color: T.green100,
-        opacity: 0.7, minWidth: 22, textAlign: 'right' }}>{index + 1}</span>
-      <span style={{ fontFamily: 'var(--font-display)', fontSize: newest ? 21 : 19, lineHeight: 1.35,
-        color: T.ink, fontStyle: 'italic' }}>
-        {parts ? (
-          <>{parts[0]}<mark style={{ background: 'linear-gradient(transparent 60%, var(--color-yellow-500) 60%)',
-            color: 'inherit', padding: '0 1px' }}>{parts[1]}</mark>{parts[2]}</>
-        ) : line}
-        <span style={{ marginLeft: 8, fontSize: 11, fontStyle: 'normal', fontWeight: 600,
-          color: mine ? T.amberText : T.muted, opacity: 0.8 }}>— {name}</span>
-      </span>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, display: 'grid', placeItems: 'center',
+      background: 'rgba(3,54,30,.55)', backdropFilter: 'blur(2px)', animation: 'va-fadeUp .25s var(--ease-glide) both' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(340px, 86vw)', background: '#fff',
+        borderRadius: 'var(--radius-card)', padding: '22px 24px', boxShadow: '0 30px 60px -24px rgba(0,0,0,.6)',
+        animation: 'va-cardPop .35s var(--ease-spring) both' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 26, color: T.ink }}>{word}</div>
+        <div style={{ marginTop: 10, fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: T.muted }}>
+          en inglés
+        </div>
+        <div style={{ marginTop: 4, fontSize: 16, color: T.green700, fontWeight: 600, minHeight: 22 }}>
+          {en === null ? <span style={{ color: T.muted, fontWeight: 400 }}>buscando…</span> : en}
+        </div>
+        <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button disabled title="próximamente" style={{ flex: 1, border: `1px dashed ${T.border}`,
+            background: '#F7F9F5', color: T.muted, borderRadius: 10, padding: '9px 12px', fontSize: 12.5,
+            fontWeight: 600, cursor: 'not-allowed' }}>
+            Ver en español ⚙︎
+          </button>
+          <Button variant="solid" onClick={onClose} style={{ padding: '9px 18px', minHeight: 0 }}>Cerrar</Button>
+        </div>
+      </div>
     </div>
   )
 }
 
-function EmptyPoem({ mineYet }: { mineYet: boolean }) {
+function EmptyPoem({ mineYet, weaving }: { mineYet: boolean; weaving: boolean }) {
   return (
-    <div style={{ textAlign: 'center', padding: '14px 6px' }}>
+    <div style={{ textAlign: 'center', padding: '18px 6px' }}>
       <div style={{ fontSize: 30, animation: 'va-breathe 4s var(--ease-glide) infinite' }}>✦</div>
       <div style={{ marginTop: 8, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, color: T.ink }}>
-        {mineYet ? 'El poema empieza en un momento…' : 'Sé quien enciende el primer verso'}
+        {weaving ? 'Tejiendo el primer poema…' : mineYet ? 'El poema llega en un instante…' : 'Enciende el primer verso'}
       </div>
-      <p style={{ margin: '6px auto 0', maxWidth: 360, fontSize: 13.5, color: T.muted }}>
-        Tu palabra se convertirá en el primer verso del poema de toda la clase.
+      <p style={{ margin: '6px auto 0', maxWidth: 380, fontSize: 13.5, color: T.muted }}>
+        Tu palabra inspirará un poema entero para toda la clase.
       </p>
     </div>
   )
 }
 
-// ambient drifting motes — keeps the screen alive while waiting
-function FloatField({ count }: { count: number }) {
-  const motes = useMemo(() => Array.from({ length: 14 }, (_, i) => ({
-    left: (i * 53) % 100,
-    top: (i * 37) % 100,
-    size: 4 + ((i * 7) % 9),
-    dur: 7 + ((i * 5) % 9),
-    delay: -(i * 1.3),
-    yellow: i % 4 === 0,
+// a yellow sweep over the poem while it regenerates — flight-themed transition
+function WeavingVeil() {
+  return (
+    <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2,
+      background: 'linear-gradient(105deg, transparent 30%, rgba(255,221,0,.18) 50%, transparent 70%)',
+      backgroundSize: '220% 100%', animation: 'va-sweep 1.1s var(--ease-glide) infinite' }} />
+  )
+}
+
+// ambient drifting motes; speed up while the poem regenerates
+function FloatField({ count, weaving }: { count: number; weaving: boolean }) {
+  const motes = useMemo(() => Array.from({ length: 16 }, (_, i) => ({
+    left: (i * 53) % 100, top: (i * 37) % 100, size: 4 + ((i * 7) % 9),
+    dur: 7 + ((i * 5) % 9), delay: -(i * 1.3), yellow: i % 4 === 0,
   })), [])
   return (
     <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
       {motes.map((m, i) => (
         <span key={i} style={{
-          position: 'absolute', left: `${m.left}%`, top: `${m.top}%`,
-          width: m.size, height: m.size, borderRadius: '50%',
-          background: m.yellow ? 'var(--color-yellow-500)' : 'rgba(197,221,206,.5)',
+          position: 'absolute', left: `${m.left}%`, top: `${m.top}%`, width: m.size, height: m.size,
+          borderRadius: '50%', background: m.yellow ? 'var(--color-yellow-500)' : 'rgba(197,221,206,.5)',
           opacity: m.yellow ? 0.5 : 0.28, filter: 'blur(.4px)',
-          animation: `${i % 2 ? 'va-drift' : 'va-driftB'} ${m.dur}s var(--ease-glide) ${m.delay}s infinite`,
+          animation: `${i % 2 ? 'va-drift' : 'va-driftB'} ${m.dur * (weaving ? 0.4 : 1)}s var(--ease-glide) ${m.delay}s infinite`,
         } as CSSProperties} />
       ))}
-      {/* a soft glow that brightens as the poem grows */}
-      <div style={{ position: 'absolute', left: '50%', top: 120, transform: 'translateX(-50%)',
-        width: 360, height: 360, borderRadius: '50%', pointerEvents: 'none',
+      <div style={{ position: 'absolute', left: '50%', top: 130, transform: 'translateX(-50%)',
+        width: 380, height: 380, borderRadius: '50%', pointerEvents: 'none',
         background: 'radial-gradient(circle, rgba(255,221,0,.10) 0%, transparent 70%)',
-        opacity: Math.min(0.25 + count * 0.06, 0.9), transition: 'opacity 1s var(--ease-glide)' }} />
+        opacity: Math.min(0.25 + count * 0.05, 0.9), transition: 'opacity 1s var(--ease-glide)' }} />
     </div>
   )
-}
-
-// split a line into [before, match, after] on the first case-insensitive,
-// accent-loose hit of `word`; null if not found (line still renders plain).
-function splitOnWord(line: string, word: string): [string, string, string] | null {
-  if (!word) return null
-  const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-  const nLine = norm(line)
-  const nWord = norm(word)
-  const at = nLine.indexOf(nWord)
-  if (at < 0) return null
-  return [line.slice(0, at), line.slice(at, at + word.length), line.slice(at + word.length)]
 }

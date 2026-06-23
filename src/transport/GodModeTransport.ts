@@ -5,7 +5,7 @@
 // ============================================================================
 import type {
   LessonConfig,
-  PoemEntry,
+  PoemWord,
   RecordedAnswers,
   RoomCode,
   RoomState,
@@ -57,7 +57,7 @@ export class GodModeTransport implements Transport {
       holds: {},
       launched: {},
       recorded: {},
-      poem: [],
+      poem: { pool: [], words: [], text: '', startCache: [], gen: 0 },
     }
     this.emit()
     return code
@@ -124,9 +124,23 @@ export class GodModeTransport implements Transport {
     this.emit()
   }
 
-  async addPoemEntry(entry: PoemEntry): Promise<void> {
+  async joinPoemPool(studentId: StudentId): Promise<void> {
     if (!this.state) return
-    this.state.poem = [...this.state.poem, entry]
+    if (this.state.poem.pool.includes(studentId)) return
+    this.state.poem = { ...this.state.poem, pool: [...this.state.poem.pool, studentId] }
+    this.emit()
+  }
+
+  async addPoemWord(word: PoemWord): Promise<void> {
+    if (!this.state) return
+    this.state.poem = { ...this.state.poem, words: [...this.state.poem.words, word] }
+    this.emit()
+  }
+
+  async commitPoem(text: string, startWord: string): Promise<void> {
+    if (!this.state) return
+    const startCache = [...this.state.poem.startCache, startWord].slice(-15)
+    this.state.poem = { ...this.state.poem, text, startCache, gen: this.state.poem.gen + 1 }
     this.emit()
   }
 
