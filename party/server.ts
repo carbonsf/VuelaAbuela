@@ -111,10 +111,19 @@ export class Room extends Server<Env> {
         this.state.poem = { ...this.state.poem, words: [...this.state.poem.words, msg.word as PoemWord] }
         break
       }
+      case 'setPoemRegenerating': {
+        if (!this.state) break
+        this.state.poem = { ...this.state.poem, regenerating: !!msg.value }
+        break
+      }
       case 'commitPoem': {
         if (!this.state) break
         const startCache = [...this.state.poem.startCache, String(msg.startWord)].slice(-15)
-        this.state.poem = { ...this.state.poem, text: String(msg.text), startCache, gen: this.state.poem.gen + 1 }
+        this.state.poem = {
+          ...this.state.poem, text: String(msg.text), startCache,
+          gen: this.state.poem.gen + 1, committed: Number(msg.covered) || this.state.poem.words.length,
+          regenerating: false,
+        }
         break
       }
       default:
@@ -131,7 +140,7 @@ export class Room extends Server<Env> {
       activity: 'LOBBY',
       students: {}, inputs: {}, personas: {}, groups: [],
       holds: {}, launched: {}, recorded: {},
-      poem: { pool: [], words: [], text: '', startCache: [], gen: 0 },
+      poem: { pool: [], words: [], text: '', startCache: [], gen: 0, committed: 0, regenerating: false },
     }
   }
 

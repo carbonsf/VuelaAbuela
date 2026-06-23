@@ -120,15 +120,22 @@ export interface PoemResult { text: string; start: string }
 export async function generatePoem(
   entries: string[], level: PoemLevel, language: string, avoidStarts: string[],
 ): Promise<PoemResult> {
+  // Graduated gate: with few words demand all of them; as the pile grows, allow
+  // a slack of misses and fewer retries (forcing 30+ words into one coherent
+  // Spanish-2/3 poem is both harder and more expensive). Best-effort beyond that.
+  const n = entries.length
+  const allowedMissing = n <= 6 ? 0 : n <= 12 ? 1 : Math.ceil(n * 0.15)
+  const maxAttempts = n <= 12 ? 3 : 2
+
   let best: { res: { poem: string; start: string }; missCount: number } | null = null
   let missing: string[] | undefined
 
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const raw = await complete(buildPrompt(entries, level, language, avoidStarts, missing), 700)
     const parsed = raw ? parsePoem(raw) : null
     if (!parsed) continue
     const miss = missingWords(parsed.poem, entries)
-    if (miss.length === 0) return { text: parsed.poem, start: parsed.start }
+    if (miss.length <= allowedMissing) return { text: parsed.poem, start: parsed.start }
     if (!best || miss.length < best.missCount) best = { res: parsed, missCount: miss.length }
     missing = miss
   }

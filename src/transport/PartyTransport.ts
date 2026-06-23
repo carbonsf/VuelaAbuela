@@ -112,7 +112,11 @@ export class PartyTransport implements Transport {
     this.send({ type: 'addPoemWord', word })
   }
 
-  async commitPoem(text: string, startWord: string): Promise<void> {
-    this.send({ type: 'commitPoem', text, startWord })
+  async setPoemRegenerating(v: boolean): Promise<void> {
+    this.send({ type: 'setPoemRegenerating', value: v })
+  }
+
+  async commitPoem(text: string, startWord: string, covered: number): Promise<void> {
+    this.send({ type: 'commitPoem', text, startWord, covered })
   }
 }

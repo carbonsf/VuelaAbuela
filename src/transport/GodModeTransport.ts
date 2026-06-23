@@ -57,7 +57,7 @@ export class GodModeTransport implements Transport {
       holds: {},
       launched: {},
       recorded: {},
-      poem: { pool: [], words: [], text: '', startCache: [], gen: 0 },
+      poem: { pool: [], words: [], text: '', startCache: [], gen: 0, committed: 0, regenerating: false },
     }
     this.emit()
     return code
@@ -137,10 +137,16 @@ export class GodModeTransport implements Transport {
     this.emit()
   }
 
-  async commitPoem(text: string, startWord: string): Promise<void> {
+  async setPoemRegenerating(v: boolean): Promise<void> {
+    if (!this.state) return
+    this.state.poem = { ...this.state.poem, regenerating: v }
+    this.emit()
+  }
+
+  async commitPoem(text: string, startWord: string, covered: number): Promise<void> {
     if (!this.state) return
     const startCache = [...this.state.poem.startCache, startWord].slice(-15)
-    this.state.poem = { ...this.state.poem, text, startCache, gen: this.state.poem.gen + 1 }
+    this.state.poem = { ...this.state.poem, text, startCache, gen: this.state.poem.gen + 1, committed: covered, regenerating: false }
     this.emit()
   }
 

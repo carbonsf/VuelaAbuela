@@ -53,9 +53,11 @@ export interface PoemWord {
 export interface PoemState {
   pool: StudentId[]      // pool join order — drives the "pyramid" of word slots
   words: PoemWord[]      // every submitted word, append-only
-  text: string          // current full poem (regenerated each submission)
+  text: string          // current full poem (regenerated in batches)
   startCache: string[]  // FIFO ≤15 recent opening words, to avoid converging
   gen: number           // regeneration counter — drives the fly transition
+  committed: number     // words.length reflected in `text` (the rest are "pending")
+  regenerating: boolean // a client is currently re-weaving the poem
 }
 
 // slotId -> value

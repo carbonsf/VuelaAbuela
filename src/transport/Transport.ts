@@ -35,5 +35,6 @@ export interface Transport {
   // waiting-game (communal poem):
   joinPoemPool(studentId: StudentId): Promise<void> // record pool join order (pyramid)
   addPoemWord(word: PoemWord): Promise<void> // append-only word contribution
-  commitPoem(text: string, startWord: string): Promise<void> // set regenerated text; cache opener
+  setPoemRegenerating(v: boolean): Promise<void> // claim/clear the re-weave (batch window)
+  commitPoem(text: string, startWord: string, covered: number): Promise<void> // set text; cache opener; mark `covered` words woven
 }
