@@ -234,8 +234,8 @@ function PoemView({ text, gen, attribution, onWord }: {
       {lines.map((line, li) => {
         const tokens = line.match(/(\p{L}[\p{L}'-]*)|([^\p{L}]+)/gu) ?? [line]
         return (
-          <div key={`${gen}-${li}`} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end',
-            justifyContent: 'center', lineHeight: 1.5, marginBottom: 6 }}>
+          <div key={`${gen}-${li}`} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline',
+            justifyContent: 'center', lineHeight: 1.5, marginBottom: 11 }}>
             {tokens.map((tok, ti) => {
               if (!/\p{L}/u.test(tok)) {
                 return <span key={ti} style={{ whiteSpace: 'pre', fontFamily: 'var(--font-display)',
@@ -261,10 +261,10 @@ function WordToken({ word, name, index, onClick }: {
 }) {
   const [hover, setHover] = useState(false)
   return (
-    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center',
+    <span style={{ position: 'relative', display: 'inline-block', whiteSpace: 'nowrap',
       animation: `va-wordFloat ${5 + (index % 5)}s var(--ease-glide) ${(index % 7) * -0.6}s infinite` }}>
       <button onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px',
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px', lineHeight: 1,
           fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 21,
           color: name ? T.green700 : T.ink,
           borderBottom: `2px solid ${hover ? T.amberMid : name ? 'rgba(255,221,0,.55)' : 'transparent'}`,
@@ -272,8 +272,11 @@ function WordToken({ word, name, index, onClick }: {
         {word}
       </button>
       {name && (
-        <span style={{ marginTop: 1, fontFamily: 'var(--font-sans)', fontStyle: 'normal',
-          fontSize: 9.5, fontWeight: 600, letterSpacing: '.02em', color: T.amberText, opacity: 0.85 }}>
+        // absolute label so it doesn't add column height (which lifted the word)
+        <span style={{ position: 'absolute', left: 0, right: 0, top: '100%', marginTop: 0,
+          textAlign: 'center', fontFamily: 'var(--font-sans)', fontStyle: 'normal', lineHeight: 1,
+          fontSize: 9, fontWeight: 600, letterSpacing: '.02em', color: T.amberText, opacity: 0.85,
+          pointerEvents: 'none' }}>
           {name}
         </span>
       )}
