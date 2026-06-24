@@ -1,9 +1,10 @@
+import { useEffect, useRef } from 'react'
 import { Button, T } from '../components/despegue'
 
 // Dynamic visual landing (takeoff). Continuous comets fly along bezier curves
-// (the "dynamic visual"); the wordmark + CTA fly in along a curved arc, then
-// settle and breathe until the user clicks to begin. Pure theming — leverages
-// the canvas, brand colors, and abstract flight motion. No literal icons.
+// (the "dynamic visual"); the wordmark + CTA fly in along a curved arc, then the
+// passing comets "charge" the wordmark — its scale and glow rise as a comet
+// nears, peaking when one passes directly underneath. Pure theming.
 
 // Optical kerning for the display wordmark. A uniform base track tightens the
 // whole word; KERN then adds a per-pair optical correction (em, margin-left on
@@ -58,7 +59,7 @@ function CometField() {
         <g key={i}>
           {/* faint bezier trail — makes the flight path itself part of the visual */}
           <path d={c.d} fill="none" stroke={c.color} strokeOpacity={0.1} strokeWidth={1.5} strokeLinecap="round" />
-          <circle r={c.r} fill={c.color} style={{ filter: `drop-shadow(0 0 8px ${c.color})` }}>
+          <circle className="va-comet" r={c.r} fill={c.color} style={{ filter: `drop-shadow(0 0 8px ${c.color})` }}>
             <animateMotion
               dur={c.dur}
               begin={c.begin}
@@ -77,15 +78,59 @@ function CometField() {
 }
 
 export function LandingScreen({ onBegin }: { onBegin: () => void }) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const markRef = useRef<HTMLDivElement>(null)
+
+  // The comets "charge" the wordmark: each frame, find the strongest nearby
+  // comet and drive the wordmark's scale + yellow glow from it. Influence peaks
+  // when a comet is horizontally over/under the word AND vertically close, so a
+  // pass directly underneath gives the biggest surge; it eases back as it leaves.
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const RADIUS = 360 // px reach of a comet's influence
+    let raf = 0
+    let scale = 1
+    let glow = 0
+    const tick = () => {
+      const mark = markRef.current
+      const root = rootRef.current
+      if (mark && root) {
+        const mr = mark.getBoundingClientRect()
+        const cx = mr.left + mr.width / 2
+        const cy = mr.top + mr.height / 2
+        let influence = 0
+        root.querySelectorAll('.va-comet').forEach((el) => {
+          const r = (el as Element).getBoundingClientRect()
+          const dx = r.left + r.width / 2 - cx
+          const dy = r.top + r.height / 2 - cy
+          const radial = Math.max(0, 1 - Math.hypot(dx, dy) / RADIUS)
+          const horiz = Math.max(0, 1 - Math.abs(dx) / (mr.width * 0.6)) // aligned under/over the word
+          const vert = Math.max(0, 1 - Math.abs(dy) / RADIUS)
+          influence = Math.max(influence, radial * 0.5, horiz * vert) // "underneath" charges most
+        })
+        const targetScale = 1 + influence * 0.085
+        scale += (targetScale - scale) * 0.12 // smooth charge / discharge
+        glow += (influence - glow) * 0.12
+        mark.style.transform = `scale(${scale.toFixed(4)})`
+        mark.style.filter = glow > 0.01
+          ? `drop-shadow(0 0 ${(glow * 26).toFixed(1)}px rgba(255,221,0,${(glow * 0.55).toFixed(3)}))`
+          : 'none'
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+    <div ref={rootRef} style={{ position: 'relative', minHeight: '100vh', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
       <CometField />
 
       <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', padding: 24 }}>
         {/* curved fly-in: outer animates X (glide), inner animates Y (spring) */}
         <div style={{ animation: 'va-flyX 1.1s var(--ease-glide) both', ['--fx' as string]: '-7vw' }}>
           <div style={{ animation: 'va-flyY 1.1s var(--ease-spring) both', ['--fy' as string]: '34vh' }}>
-            <div style={{ display: 'inline-block', animation: 'va-breathe 7s var(--ease-glide) infinite', animationDelay: '1.1s' }}>
+            <div ref={markRef} style={{ display: 'inline-block', willChange: 'transform, filter', transformOrigin: 'center' }}>
               <KernedWordmark size="clamp(48px, 11vw, 124px)" />
             </div>
           </div>
