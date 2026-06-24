@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import type { Device } from '../App'
 import { useRoom } from '../RoomContext'
 import { T } from '../components/despegue'
-import { autofillAndPass } from './godmode'
+import { autofillAndPass, jumpAllToPoem, resetRoom } from './godmode'
 
 // God-mode control bar (§1). Switch viewer across all student screens + the
 // teacher dashboard; spawn fake students; fast-forward. Visually fenced off (a
@@ -39,6 +39,23 @@ export function GodModeBar({
     fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 600,
     background: 'rgba(255,255,255,.1)', color: 'rgba(250,251,248,.85)',
   }
+  // poem-tinted action so the minigame shortcuts stand out
+  const poemAction: CSSProperties = { ...action, background: 'rgba(255,221,0,.16)', color: T.yellow }
+
+  const PASSED = ['passed', 'waiting', 'activating', 'conversing', 'submitted']
+
+  // Push ONE more student into the poem game and switch to their device so it
+  // mounts (joins the pool). Lets you build the pyramid one student at a time.
+  function poemNext() {
+    if (!state) return
+    if (state.activity === 'LOBBY') transport.patch({ activity: 'INPUT' })
+    const cand = devices.find((d) => d.kind === 'student' && d.studentId
+      && state.students[d.studentId] && !state.students[d.studentId].markedOut
+      && !PASSED.includes(state.students[d.studentId].phase))
+    if (!cand || cand.kind !== 'student' || !cand.studentId) return
+    transport.setStudentPhase(cand.studentId, 'passed')
+    setActiveId(cand.id)
+  }
 
   return (
     <div style={{ position: 'sticky', top: 0, zIndex: 50, background: '#0a0f0c',
@@ -66,6 +83,21 @@ export function GodModeBar({
         <button onClick={() => state && autofillAndPass(transport, state)} style={action}
           title="rellena las entradas de cada alumno y las aprueba">
           rellenar &amp; aprobar
+        </button>
+
+        <span style={{ width: 1, height: 16, background: 'rgba(255,255,255,.2)', margin: '0 4px' }} />
+
+        <button onClick={poemNext} style={poemAction}
+          title="pasa al siguiente alumno al poema y cambia a su pantalla (para armar la pirámide)">
+          🪂 poema +1
+        </button>
+        <button onClick={() => state && jumpAllToPoem(transport, state)} style={poemAction}
+          title="manda a todos los alumnos al minijuego del poema">
+          poema: todos
+        </button>
+        <button onClick={() => state && resetRoom(transport, state)} style={action}
+          title="reinicia la ronda y manda a todos al vestíbulo (solo god mode)">
+          ↺ reiniciar
         </button>
 
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(250,251,248,.4)' }}>

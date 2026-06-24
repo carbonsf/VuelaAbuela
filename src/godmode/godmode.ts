@@ -47,3 +47,34 @@ export async function autofillAndPass(transport: Transport, state: RoomState) {
     await transport.setStudentPhase(s.id, 'passed')
   }
 }
+
+// God-mode shortcut: drop every active student straight into the poem waiting-
+// game (activity INPUT + phase passed). No inputs needed — this is just to reach
+// and test the minigame quickly.
+export async function jumpAllToPoem(transport: Transport, state: RoomState) {
+  const students = { ...state.students }
+  for (const s of Object.values(state.students)) {
+    if (s.markedOut) continue
+    students[s.id] = { ...s, phase: 'passed' }
+  }
+  await transport.patch({ activity: 'INPUT', students })
+}
+
+// God-mode reset: send everyone back to the lobby and wipe the round (poem,
+// pairings, inputs) so you can re-test from a clean slate. Keeps joined students.
+export async function resetRoom(transport: Transport, state: RoomState) {
+  const students: RoomState['students'] = {}
+  const inputs: RoomState['inputs'] = {}
+  for (const s of Object.values(state.students)) {
+    if (s.id === 'teacher-player') continue // drop the absorbed teacher-player
+    students[s.id] = { ...s, phase: 'joined', markedOut: false,
+      feedback: { appropriacyFails: 0, reenters: 0, correctionLoops: 0 } }
+    const nameCell = state.inputs[s.id]?.name
+    inputs[s.id] = nameCell ? { name: nameCell } : {}
+  }
+  await transport.patch({
+    activity: 'LOBBY', students, inputs,
+    personas: {}, groups: [], holds: {}, launched: {}, recorded: {},
+    poem: { pool: [], words: [], text: '', startCache: [], gen: 0, committed: 0, regenerating: false },
+  })
+}
