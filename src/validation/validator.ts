@@ -4,13 +4,13 @@
 // Appropriateness is weighted first: if it fails, nothing else matters.
 //
 // Runtime: live, in-artifact via window.claude.complete (no API key passed, §1).
-// Model claude-sonnet-4-6, max_tokens 1000. When the artifact runtime is absent
+// Model claude-sonnet-5, max_tokens 1000. When the artifact runtime is absent
 // (plain local dev), a transparent heuristic fallback keeps god-mode usable and
 // logs a notice — the seam is identical either way.
 // ============================================================================
 import type { LessonConfig, Prompt, ValidationResult } from '../types'
 
-export const VALIDATION_MODEL = 'claude-sonnet-4-6'
+export const VALIDATION_MODEL = 'claude-sonnet-5'
 export const VALIDATION_MAX_TOKENS = 1000
 
 // Target-language code -> English name. Shared with cleanse.ts.

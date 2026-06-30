@@ -8,7 +8,7 @@
 //   GET  -> { ready: <bool> }   health probe for the "live validation" badge
 //   POST { prompt } -> { text }  one validation call
 
-const MODEL = 'claude-sonnet-4-6'
+const MODEL = 'claude-sonnet-5'
 const DEFAULT_MAX_TOKENS = 1000
 const TOKEN_CEILING = 4096 // hard cap regardless of requested budget
 const MAX_PROMPT_CHARS = 16000 // cap payload — this is an open endpoint
@@ -61,6 +61,10 @@ export default async function handler(req, res) {
   const maxTokens = Number.isFinite(requested)
     ? Math.min(Math.max(1, Math.floor(requested)), TOKEN_CEILING)
     : DEFAULT_MAX_TOKENS
+  // optional model override (must be an Anthropic model id); defaults to MODEL
+  const model = body && typeof body.model === 'string' && /^claude-[a-z0-9-]+$/.test(body.model)
+    ? body.model
+    : MODEL
 
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
@@ -71,7 +75,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: MODEL,
+        model,
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }],
       }),
