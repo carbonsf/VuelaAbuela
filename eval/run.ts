@@ -6,7 +6,7 @@
 // actual action so you can tune the prompt and re-run.
 //
 //   npm run eval:validator                  # full corpus, model claude-sonnet-4-6
-//   CLAUDE_MODEL=claude-opus-4-8 npm run eval:validator
+//   CLAUDE_MODEL=claude-opus-5 npm run eval:validator
 //   node eval/run.ts block reenter          # only cases whose id starts with…
 // ============================================================================
 import { spawn } from 'node:child_process'

@@ -57,7 +57,7 @@ export class GodModeTransport implements Transport {
       holds: {},
       launched: {},
       recorded: {},
-      poem: { pool: [], words: [], text: '', startCache: [], gen: 0, committed: 0, regenerating: false },
+      poem: { pool: [], words: [], versions: [], startCache: [], committed: 0, regenerating: false, windowStartedAt: null },
     }
     this.emit()
     return code
@@ -133,7 +133,13 @@ export class GodModeTransport implements Transport {
 
   async addPoemWord(word: PoemWord): Promise<void> {
     if (!this.state) return
-    this.state.poem = { ...this.state.poem, words: [...this.state.poem.words, word] }
+    const p = this.state.poem
+    this.state.poem = {
+      ...p,
+      words: [...p.words, word],
+      // first pending word opens the collection window (shared countdown)
+      windowStartedAt: p.windowStartedAt ?? Date.now(),
+    }
     this.emit()
   }
 
@@ -145,8 +151,16 @@ export class GodModeTransport implements Transport {
 
   async commitPoem(text: string, startWord: string, covered: number): Promise<void> {
     if (!this.state) return
-    const startCache = [...this.state.poem.startCache, startWord].slice(-15)
-    this.state.poem = { ...this.state.poem, text, startCache, gen: this.state.poem.gen + 1, committed: covered, regenerating: false }
+    const p = this.state.poem
+    this.state.poem = {
+      ...p,
+      versions: [...p.versions, { text, start: startWord, covered }],
+      startCache: [...p.startCache, startWord].slice(-15),
+      committed: covered,
+      regenerating: false,
+      // reopen a window only if words arrived while we were weaving
+      windowStartedAt: p.words.length > covered ? Date.now() : null,
+    }
     this.emit()
   }
 

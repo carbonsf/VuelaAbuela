@@ -2,22 +2,24 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useRoom } from '../RoomContext'
 import { GOD_MODE } from '../godmode/godmode'
-import { Screen, Surface, Button, Pill, ProgressArc, T } from '../components/despegue'
+import { Screen, Surface, Button, Pill, T } from '../components/despegue'
 import { validateInput } from '../validation/validator'
 import { generatePoem, defineWordEN, deaccent, wordStem } from './poem'
 import type { Prompt, PoemLevel, StudentId } from '../types'
 
-// Communal waiting-game poem (§10). Words are collected and the WHOLE poem is
-// re-woven in BATCHES on a fixed collection window (not per word), so it reads
-// like a real Spanish poem without a model call on every keystroke. Words are
-// embedded in the poem with a tiny contributor tag; every word is clickable for
-// a definition. "Pyramid" of turns: each new pool member grants every earlier
-// member another word, so allowance(student) = poolSize − theirJoinIndex.
+// Communal waiting-game poem (§10). Words are COLLECTED over a window and the
+// whole poem is re-woven once per batch (one Sonnet call), so we don't generate
+// a poem per word. The new batch is hard-required in the poem; earlier words are
+// suggested. Every weave is kept, so students can browse the history.
 //
+// ── Dial this in ──────────────────────────────────────────────────────────────
+const COLLECTION_MS = 20000 // how long to collect words before weaving
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// The window ends early the moment every active student has used their slots.
 // STUB seam → server-authoritative batching: today one client (pool[0], or the
-// mounted device in god-mode) drives the window timer and regenerates. The real
-// version arms a Durable Object alarm so the server re-weaves once, authoritatively.
-const COLLECTION_MS = 15000
+// mounted device in god-mode) drives the timer. The real version arms a Durable
+// Object alarm so the server weaves once, authoritatively.
 
 const SPANISH_ARTICLES = ['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas']
 
@@ -49,15 +51,45 @@ export function PoemGame({ studentId }: { studentId: StudentId }) {
   const { transport, state } = useRoom()
   const config = state!.config
   const level: PoemLevel = config.poemLevel ?? 'intermedio'
-  const poem = state!.poem
   const me = state!.students[studentId]
+  // Tolerate a room created by an older server build (pre-`versions`), so a
+  // client deploy that lands before the worker redeploy degrades instead of
+  // crashing. Once the worker ships the new shape these defaults never apply.
+  const raw = state!.poem
+  const poem = useMemo(() => ({
+    ...raw,
+    pool: raw.pool ?? [],
+    words: raw.words ?? [],
+    versions: raw.versions ?? [],
+    startCache: raw.startCache ?? [],
+    committed: raw.committed ?? 0,
+    windowStartedAt: raw.windowStartedAt ?? null,
+  }), [raw])
 
   useEffect(() => { transport.joinPoemPool(studentId) }, [transport, studentId])
 
+  // ---- pyramid allowance
   const poolIdx = poem.pool.indexOf(studentId)
   const allowance = poolIdx < 0 ? 0 : poem.pool.length - poolIdx
   const myUsed = poem.words.filter((w) => w.byStudentId === studentId).length
   const remaining = Math.max(0, allowance - myUsed)
+
+  // ---- batch state
+  const pendingWords = poem.words.slice(poem.committed)
+  const pending = pendingWords.length
+  const submittedCount = poem.pool.filter((id, i) => {
+    const used = poem.words.filter((w) => w.byStudentId === id).length
+    return used >= poem.pool.length - i
+  }).length
+  const allSubmitted = poem.pool.length > 0 && submittedCount === poem.pool.length
+
+  // ---- poem history / viewing
+  const versions = poem.versions
+  const latestIdx = versions.length - 1
+  const [pinnedIdx, setPinnedIdx] = useState<number | null>(null) // null = follow latest
+  const viewIdx = pinnedIdx ?? latestIdx
+  const shown = versions[viewIdx]
+  const hasNewer = pinnedIdx !== null && pinnedIdx < latestIdx
 
   const [draft, setDraft] = useState('')
   const [attempt, setAttempt] = useState(0)
@@ -65,33 +97,26 @@ export function PoemGame({ studentId }: { studentId: StudentId }) {
   const [def, setDef] = useState<{ word: string; en: string | null } | null>(null)
   const defCache = useRef<Map<string, string>>(new Map())
 
-  // attribution: word stem (accent-folded) -> contributor name
+  // attribution covers EVERY word ever submitted, including older rounds
   const attribution = useMemo(() => {
     const m = new Map<string, string>()
     for (const w of poem.words) m.set(wordStem(w.word), w.byName)
     return m
   }, [poem.words])
 
-  const active = Object.values(state!.students).filter((s) => !s.markedOut)
-  const readyCount = active.filter((s) =>
-    ['passed', 'waiting', 'activating', 'conversing', 'submitted'].includes(s.phase)).length
-
-  const pendingWords = poem.words.slice(poem.committed)
-  const pending = pendingWords.length
-
-  // ---- batched regeneration: a single designated client drives a fixed window
+  // ---- batched weave: absolute deadline in shared state, so every client agrees
   const amRegenerator = GOD_MODE || poem.pool[0] === studentId
   const poemRef = useRef(poem); poemRef.current = poem
-  const timer = useRef<number | null>(null)
 
   async function fireRegen() {
-    timer.current = null
     const cur = poemRef.current
     if (cur.regenerating || cur.words.length <= cur.committed) return
     const covered = cur.words.length
+    const hard = cur.words.slice(cur.committed).map((w) => w.word) // this batch: required
+    const soft = cur.words.slice(0, cur.committed).map((w) => w.word) // older: suggested
     await transport.setPoemRegenerating(true)
     try {
-      const { text, start } = await generatePoem(cur.words.map((w) => w.word), level, config.language, cur.startCache)
+      const { text, start } = await generatePoem(hard, soft, level, config.language, cur.startCache)
       await transport.commitPoem(text, start, covered)
     } catch {
       await transport.setPoemRegenerating(false)
@@ -99,14 +124,26 @@ export function PoemGame({ studentId }: { studentId: StudentId }) {
   }
 
   useEffect(() => {
-    if (!amRegenerator || pending <= 0 || poem.regenerating || timer.current != null) return
-    const delay = poem.text === '' ? 0 : COLLECTION_MS // first poem is instant; then batch
-    timer.current = window.setTimeout(fireRegen, delay)
-    // a fixed window: do NOT reset when more words arrive mid-window
+    if (!amRegenerator || pending <= 0 || poem.regenerating) return
+    if (allSubmitted) { void fireRegen(); return } // everyone's in — jump the queue
+    const started = poem.windowStartedAt ?? Date.now()
+    const wait = Math.max(0, COLLECTION_MS - (Date.now() - started))
+    const t = window.setTimeout(() => void fireRegen(), wait)
+    return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pending, poem.regenerating, poem.text, amRegenerator])
+  }, [pending, poem.regenerating, allSubmitted, poem.windowStartedAt, amRegenerator])
 
-  useEffect(() => () => { if (timer.current != null) clearTimeout(timer.current) }, [])
+  // tick the visible countdown
+  const [, tick] = useState(0)
+  useEffect(() => {
+    if (pending <= 0 || poem.regenerating) return
+    const i = window.setInterval(() => tick((n) => n + 1), 250)
+    return () => clearInterval(i)
+  }, [pending, poem.regenerating])
+
+  const elapsed = poem.windowStartedAt ? Date.now() - poem.windowStartedAt : 0
+  const secondsLeft = Math.max(0, Math.ceil((COLLECTION_MS - elapsed) / 1000))
+  const windowProgress = Math.min(1, elapsed / COLLECTION_MS)
 
   const busy = fb.kind === 'working'
 
@@ -123,7 +160,6 @@ export function PoemGame({ studentId }: { studentId: StudentId }) {
       else { setAttempt((a) => a + 1); setFb({ kind: 'reveal', msg: res.hint, answer: res.answer }) }
       return
     }
-    // pass -> record the word (it joins the next batch); the window re-weaves it in
     await transport.addPoemWord({ word: entry, byStudentId: studentId, byName: me?.name ?? '—' })
     setDraft(''); setAttempt(0); setFb({ kind: 'added' })
     window.setTimeout(() => setFb((f) => (f.kind === 'added' ? { kind: 'idle' } : f)), 2200)
@@ -151,7 +187,7 @@ export function PoemGame({ studentId }: { studentId: StudentId }) {
               El poema de la clase
             </div>
             <p style={{ margin: '7px 0 0', fontSize: 13.5, color: T.onDarkMuted }}>
-              Aporta una palabra — el poema entero se reteje cada poco. Toca cualquier palabra para su significado.
+              Aporta palabras — cada poco se teje un poema nuevo con todas. Toca cualquier palabra para su significado.
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -160,33 +196,51 @@ export function PoemGame({ studentId }: { studentId: StudentId }) {
           </div>
         </div>
 
+        {/* history nav */}
+        {versions.length > 1 && (
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <NavBtn label="←" disabled={viewIdx <= 0} onClick={() => setPinnedIdx(Math.max(0, viewIdx - 1))} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: T.onDarkMuted, minWidth: 108, textAlign: 'center' }}>
+              Poema {viewIdx + 1} de {versions.length}
+              {viewIdx < latestIdx && <span style={{ color: T.amberText }}> · anterior</span>}
+            </span>
+            <NavBtn label="→" disabled={viewIdx >= latestIdx} onClick={() => {
+              const next = viewIdx + 1
+              setPinnedIdx(next >= latestIdx ? null : next) // reaching the end resumes following
+            }} />
+          </div>
+        )}
+
         {/* the poem */}
-        <Surface style={{ marginTop: 18, padding: '28px 30px', minHeight: 170, position: 'relative', overflow: 'hidden' }}>
+        <Surface style={{ marginTop: 12, padding: '28px 30px', minHeight: 170, position: 'relative', overflow: 'hidden' }}>
           {poem.regenerating && <WeavingVeil />}
-          {poem.text ? (
-            <PoemView key={poem.gen} text={poem.text} gen={poem.gen} attribution={attribution} onWord={openDef} />
+          {shown ? (
+            <PoemView key={viewIdx} text={shown.text} attribution={attribution} onWord={openDef} />
           ) : (
             <EmptyPoem mineYet={myUsed > 0} weaving={poem.regenerating} />
           )}
         </Surface>
 
-        {/* pending words awaiting the next weave */}
-        {pending > 0 && (
-          <div style={{ marginTop: 12, textAlign: 'center' }}>
-            <div style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: '.04em', color: T.onDarkMuted, marginBottom: 7 }}>
-              {poem.regenerating ? 'tejiendo…' : `por entrelazar en el próximo verso${amRegenerator ? '' : ' (~15 s)'}`}
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'center' }}>
-              {pendingWords.map((w, i) => (
-                <span key={i} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, padding: '5px 11px',
-                  borderRadius: 999, fontSize: 13, background: 'rgba(255,221,0,.12)', border: '1px solid rgba(255,221,0,.4)',
-                  color: T.onDarkSoft, animation: 'va-cardPop .5s var(--ease-spring) both', animationDelay: `${0.05 * i}s` }}>
-                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: T.bg }}>{w.word}</span>
-                  <span style={{ fontSize: 11, color: T.onDarkMuted }}>· {w.byName}</span>
-                </span>
-              ))}
-            </div>
+        {/* a new poem exists but you're reading an older one — nudge, don't yank */}
+        {hasNewer && (
+          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'center' }}>
+            <button onClick={() => setPinnedIdx(null)} style={{ cursor: 'pointer', borderRadius: 999,
+              padding: '7px 15px', fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 700,
+              color: T.canvas, background: 'var(--color-yellow-500)', border: 'none',
+              boxShadow: '0 8px 22px -10px rgba(255,221,0,.8)', animation: 'va-cardPop .4s var(--ease-spring) both' }}>
+              ✨ Hay un poema nuevo — verlo
+            </button>
           </div>
+        )}
+
+        {/* next weave: countdown + early-exit signal */}
+        {pending > 0 && (
+          <NextWeave
+            regenerating={poem.regenerating} allSubmitted={allSubmitted}
+            secondsLeft={secondsLeft} progress={windowProgress}
+            submittedCount={submittedCount} poolSize={poem.pool.length}
+            pendingWords={pendingWords} mine={studentId}
+          />
         )}
 
         {/* your turn */}
@@ -208,14 +262,6 @@ export function PoemGame({ studentId }: { studentId: StudentId }) {
             </div>
           )}
         </div>
-
-        {/* readiness */}
-        <div style={{ marginTop: 22, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14 }}>
-          <ProgressArc value={readyCount} total={active.length} size={66} label="listos" />
-          <p style={{ margin: 0, fontSize: 13, color: T.onDarkMuted, maxWidth: 250 }}>
-            Esperando a que tu profe lance el reparto — el poema sigue creciendo mientras tanto.
-          </p>
-        </div>
       </div>
 
       {def && <DefinitionModal word={def.word} en={def.en} onClose={() => setDef(null)} />}
@@ -223,9 +269,75 @@ export function PoemGame({ studentId }: { studentId: StudentId }) {
   )
 }
 
+// ---- next-weave panel: ticking countdown + "everyone's in ⇒ it jumps" --------
+function NextWeave({ regenerating, allSubmitted, secondsLeft, progress, submittedCount, poolSize, pendingWords, mine }: {
+  regenerating: boolean; allSubmitted: boolean; secondsLeft: number; progress: number
+  submittedCount: number; poolSize: number; pendingWords: { word: string; byStudentId: string; byName: string }[]; mine: string
+}) {
+  const R = 15
+  const C = 2 * Math.PI * R
+  return (
+    <div style={{ marginTop: 14, borderRadius: 'var(--radius-card)', background: 'rgba(250,251,248,.05)',
+      border: '1px solid rgba(255,221,0,.22)', padding: '12px 16px', animation: 'va-rise .4s var(--ease-glide) both' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {regenerating ? (
+          <span style={{ fontSize: 13, fontWeight: 700, color: T.yellow }}>✧ Tejiendo el poema nuevo…</span>
+        ) : allSubmitted ? (
+          <span style={{ fontSize: 13, fontWeight: 700, color: T.yellow }}>✧ ¡Todos han enviado! Tejiendo ahora…</span>
+        ) : (
+          <>
+            {/* depleting ring — the wait is visible, not mysterious */}
+            <span style={{ position: 'relative', width: 38, height: 38, flexShrink: 0 }}>
+              <svg width="38" height="38" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="19" cy="19" r={R} fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="3" />
+                <circle cx="19" cy="19" r={R} fill="none" stroke="var(--color-yellow-500)" strokeWidth="3"
+                  strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * progress}
+                  style={{ transition: 'stroke-dashoffset .25s linear' }} />
+              </svg>
+              <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
+                fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 12, color: T.bg }}>
+                {secondsLeft}
+              </span>
+            </span>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.bg }}>Poema nuevo en {secondsLeft} s</div>
+              <div style={{ fontSize: 11.5, color: T.onDarkMuted }}>
+                o en cuanto envíen todos — <span style={{ color: T.yellow, fontWeight: 700 }}>{submittedCount}/{poolSize}</span> listos
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'center' }}>
+        {pendingWords.map((w, i) => (
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, padding: '4px 10px',
+            borderRadius: 999, fontSize: 12.5, background: 'rgba(255,221,0,.12)',
+            border: `1px solid ${w.byStudentId === mine ? 'rgba(255,221,0,.7)' : 'rgba(255,221,0,.35)'}`,
+            color: T.onDarkSoft, animation: 'va-cardPop .5s var(--ease-spring) both', animationDelay: `${0.05 * i}s` }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: T.bg }}>{w.word}</span>
+            <span style={{ fontSize: 10.5, color: T.onDarkMuted }}>· {w.byName}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function NavBtn({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} disabled={disabled} aria-label={label === '←' ? 'Poema anterior' : 'Poema siguiente'}
+      style={{ width: 30, height: 30, borderRadius: 999, cursor: disabled ? 'default' : 'pointer',
+        border: '1px solid rgba(255,255,255,.16)', background: 'rgba(255,255,255,.06)',
+        color: disabled ? 'rgba(255,255,255,.2)' : T.bg, fontSize: 14, lineHeight: 1 }}>
+      {label}
+    </button>
+  )
+}
+
 // ---- the rendered poem: cohesive text, embedded attributions, clickable -----
-function PoemView({ text, gen, attribution, onWord }: {
-  text: string; gen: number; attribution: Map<string, string>; onWord: (w: string) => void
+function PoemView({ text, attribution, onWord }: {
+  text: string; attribution: Map<string, string>; onWord: (w: string) => void
 }) {
   const lines = text.split('\n').filter((l) => l.trim().length > 0)
   let wordIndex = 0
@@ -234,7 +346,7 @@ function PoemView({ text, gen, attribution, onWord }: {
       {lines.map((line, li) => {
         const tokens = line.match(/(\p{L}[\p{L}'-]*)|([^\p{L}]+)/gu) ?? [line]
         return (
-          <div key={`${gen}-${li}`} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline',
+          <div key={li} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline',
             justifyContent: 'center', lineHeight: 1.5, marginBottom: 11 }}>
             {tokens.map((tok, ti) => {
               if (!/\p{L}/u.test(tok)) {
@@ -272,7 +384,6 @@ function WordToken({ word, name, index, onClick }: {
         {word}
       </button>
       {name && (
-        // absolute label so it doesn't add column height (which lifted the word)
         <span style={{ position: 'absolute', left: 0, right: 0, top: '100%', marginTop: 0,
           textAlign: 'center', fontFamily: 'var(--font-sans)', fontStyle: 'normal', lineHeight: 1,
           fontSize: 9, fontWeight: 600, letterSpacing: '.02em', color: T.amberText, opacity: 0.85,
@@ -309,7 +420,7 @@ function YourTurn({ draft, setDraft, onAdd, fb, busy, remaining }: {
         {fb.kind === 'reenter' && <>↻ {fb.msg}</>}
         {fb.kind === 'point' && <>✎ {fb.msg}</>}
         {fb.kind === 'reveal' && <>✎ {fb.msg}{fb.answer ? <> → <span style={{ color: T.bg }}>{fb.answer}</span></> : null}</>}
-        {fb.kind === 'added' && <>✓ ¡añadida! se entrelazará en el próximo verso.</>}
+        {fb.kind === 'added' && <>✓ ¡añadida! entrará en el próximo poema.</>}
         {fb.kind === 'idle' && <span style={{ color: T.onDarkMuted, fontWeight: 500 }}>
           Te queda{remaining === 1 ? '' : 'n'} {remaining} palabra{remaining === 1 ? '' : 's'} por añadir.</span>}
       </div>

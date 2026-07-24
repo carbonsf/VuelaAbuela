@@ -50,14 +50,21 @@ export interface PoemWord {
 
 // The communal waiting-game poem. The whole poem is REGENERATED from scratch on
 // every new word (so it stays cohesive), incorporating all submitted words.
+// One woven poem. Every weave is kept so students can browse the history.
+export interface PoemVersion {
+  text: string
+  start: string   // opening word (fed back into startCache)
+  covered: number // how many submitted words existed when it was woven
+}
+
 export interface PoemState {
   pool: StudentId[]      // pool join order — drives the "pyramid" of word slots
   words: PoemWord[]      // every submitted word, append-only
-  text: string          // current full poem (regenerated in batches)
-  startCache: string[]  // FIFO ≤15 recent opening words, to avoid converging
-  gen: number           // regeneration counter — drives the fly transition
-  committed: number     // words.length reflected in `text` (the rest are "pending")
-  regenerating: boolean // a client is currently re-weaving the poem
+  versions: PoemVersion[] // poem history, newest last (length doubles as the gen counter)
+  startCache: string[]   // FIFO ≤15 recent opening words, to avoid converging
+  committed: number      // words.length reflected in the latest version (rest are "pending")
+  regenerating: boolean  // a client is currently re-weaving the poem
+  windowStartedAt: number | null // epoch ms the collection window opened (shared countdown)
 }
 
 // slotId -> value

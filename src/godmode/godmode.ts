@@ -75,6 +75,6 @@ export async function resetRoom(transport: Transport, state: RoomState) {
   await transport.patch({
     activity: 'LOBBY', students, inputs,
     personas: {}, groups: [], holds: {}, launched: {}, recorded: {},
-    poem: { pool: [], words: [], text: '', startCache: [], gen: 0, committed: 0, regenerating: false },
+    poem: { pool: [], words: [], versions: [], startCache: [], committed: 0, regenerating: false, windowStartedAt: null },
   })
 }

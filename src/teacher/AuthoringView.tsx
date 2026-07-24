@@ -48,6 +48,22 @@ export function AuthoringView() {
             </button>
           ))}
         </div>
+
+        {/* STUB seam (§0): a teacher-chosen theme, asked earlier in the flow, that
+            would steer every weave (e.g. "el viaje", "la familia"). Not wired yet. */}
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${T.border}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+            <StubBadge label="tema" />
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: T.ink }}>Tema del poema</span>
+          </div>
+          <input disabled placeholder="p. ej. «el viaje», «la familia» — próximamente"
+            style={{ width: '100%', boxSizing: 'border-box', background: '#F7F9F5',
+              border: `1px dashed ${T.border}`, borderRadius: 'var(--radius-box)', padding: '10px 12px',
+              fontFamily: 'var(--font-sans)', fontSize: 13.5, color: T.muted, cursor: 'not-allowed' }} />
+          <p style={{ margin: '6px 0 0', fontSize: 11.5, color: T.muted }}>
+            Se preguntará antes de empezar la actividad y guiará cada poema tejido.
+          </p>
+        </div>
       </Surface>
 
       <div style={{ borderRadius: 'var(--radius-card)', border: '1px dashed rgba(224,168,0,.5)',

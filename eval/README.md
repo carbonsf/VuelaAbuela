@@ -7,7 +7,7 @@ local, logged-in `claude` CLI — no API key needed.
 
 ```bash
 npm run eval:validator                      # full corpus, model claude-sonnet-4-6
-CLAUDE_MODEL=claude-opus-4-8 npm run eval:validator
+CLAUDE_MODEL=claude-opus-5 npm run eval:validator
 node eval/run.ts block reenter              # only ids starting with block/reenter
 EVAL_CONCURRENCY=1 npm run eval:validator   # serialize the model calls
 ```

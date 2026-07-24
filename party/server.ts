@@ -108,7 +108,12 @@ export class Room extends Server<Env> {
       }
       case 'addPoemWord': {
         if (!this.state) break
-        this.state.poem = { ...this.state.poem, words: [...this.state.poem.words, msg.word as PoemWord] }
+        const p = this.state.poem
+        this.state.poem = {
+          ...p,
+          words: [...p.words, msg.word as PoemWord],
+          windowStartedAt: p.windowStartedAt ?? Date.now(), // opens the shared countdown
+        }
         break
       }
       case 'setPoemRegenerating': {
@@ -118,11 +123,15 @@ export class Room extends Server<Env> {
       }
       case 'commitPoem': {
         if (!this.state) break
-        const startCache = [...this.state.poem.startCache, String(msg.startWord)].slice(-15)
+        const p = this.state.poem
+        const covered = Number(msg.covered) || p.words.length
         this.state.poem = {
-          ...this.state.poem, text: String(msg.text), startCache,
-          gen: this.state.poem.gen + 1, committed: Number(msg.covered) || this.state.poem.words.length,
+          ...p,
+          versions: [...p.versions, { text: String(msg.text), start: String(msg.startWord), covered }],
+          startCache: [...p.startCache, String(msg.startWord)].slice(-15),
+          committed: covered,
           regenerating: false,
+          windowStartedAt: p.words.length > covered ? Date.now() : null,
         }
         break
       }
@@ -140,7 +149,7 @@ export class Room extends Server<Env> {
       activity: 'LOBBY',
       students: {}, inputs: {}, personas: {}, groups: [],
       holds: {}, launched: {}, recorded: {},
-      poem: { pool: [], words: [], text: '', startCache: [], gen: 0, committed: 0, regenerating: false },
+      poem: { pool: [], words: [], versions: [], startCache: [], committed: 0, regenerating: false, windowStartedAt: null },
     }
   }
 
