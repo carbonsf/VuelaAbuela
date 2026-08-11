@@ -68,4 +68,6 @@ export const CORPUS: CorpusCase[] = [
   { id: 'pass-irregular-agua', promptId: 'object', value: 'el agua', grammarAttempt: 0, expect: 'pass', edge: true, note: 'correct irregular: "el agua" (feminine noun, masculine article) must NOT be over-corrected' },
   { id: 'pass-irregular-mano', promptId: 'object', value: 'la mano', grammarAttempt: 0, expect: 'pass', edge: true, note: 'correct irregular: "la mano" (feminine despite -o) must NOT be over-corrected' },
   { id: 'pass-irregular-problema', promptId: 'object', value: 'un problema', grammarAttempt: 0, expect: 'pass', edge: true, note: 'correct irregular: "un problema" (masculine despite -a)' },
+  { id: 'pass-variant-preposition', promptId: 'commute', value: 'por carro', grammarAttempt: 0, expect: 'pass', note: 'valid alternative preposition — "por carro" / "en carro" both correct; must NOT be over-corrected to one textbook form' },
+  { id: 'pass-regional-vocab', promptId: 'commute', value: 'en coche', grammarAttempt: 0, expect: 'pass', note: 'regional vocabulary (coche/carro/auto all valid) — accept, do not push one preferred word' },
 ]
